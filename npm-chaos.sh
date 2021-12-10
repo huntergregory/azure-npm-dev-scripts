@@ -234,7 +234,8 @@ if [[ $cleanupBeforeStarting == "true" ]]; then
     cleanUpAllResources
 fi
 
-# deploy NPM
+## deploy NPM (fail if anything goes wrong)
+set -e
 echo "(re)deploying NPM with profile $profile and image $image"
 kubectl apply -f https://raw.githubusercontent.com/Azure/azure-container-networking/master/npm/azure-npm.yaml
 # swap azure-npm image with desired one
@@ -243,6 +244,7 @@ kubectl set image daemonset/azure-npm -n kube-system azure-npm=$image
 kubectl apply -f $profilePath
 kubectl rollout restart ds azure-npm -n kube-system
 kubectl describe daemonset azure-npm -n kube-system
+set +e
 echo "sleeping to allow NPM pods to come back up after boot up"
 sleep 60
 
@@ -306,7 +308,7 @@ capture () {
     if [[ $captureMode == "memory" ]]; then
         conditionalSleep $2
         echo "CURRENT MEMORY: $1"
-        k top -n kube-system $npmPod
+        kubectl top -n kube-system $npmPod
         echo "getting pprof for heap: $1"
         execPod "curl localhost:10091/debug/pprof/heap -o $podFilePath"
     fi
