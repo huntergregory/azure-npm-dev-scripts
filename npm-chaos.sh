@@ -308,7 +308,7 @@ capture () {
     if [[ $captureMode == "memory" ]]; then
         conditionalSleep $2
         echo "CURRENT MEMORY: $1"
-        kubectl top -n kube-system $npmPod
+        kubectl top -n kube-system pod $npmPod
         echo "getting pprof for heap: $1"
         execPod "curl localhost:10091/debug/pprof/heap -o $podFilePath"
     fi
