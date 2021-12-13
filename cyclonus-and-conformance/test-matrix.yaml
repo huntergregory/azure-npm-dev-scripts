@@ -1,0 +1,522 @@
+# namespaces
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    ns: "x"
+  name: "x"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    ns: "y"
+  name: "y"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    ns: "z"
+  name: "z"
+---
+# x pods
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    pod: a
+  name: a
+  namespace: "x"
+spec:
+  containers:
+  - name: container
+    image: nginx
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 80
+      name: serve-80-tcp
+      protocol: TCP
+    - containerPort: 80
+      name: serve-80-udp
+      protocol: UDP
+    - containerPort: 81
+      name: serve-81-tcp
+      protocol: TCP
+    - containerPort: 81
+      name: serve-81-udp
+      protocol: UDP
+  nodeSelector:
+    vm: "0"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    pod: b
+  name: b
+  namespace: "x"
+spec:
+  containers:
+  - name: container
+    image: nginx
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 80
+      name: serve-80-tcp
+      protocol: TCP
+    - containerPort: 80
+      name: serve-80-udp
+      protocol: UDP
+    - containerPort: 81
+      name: serve-81-tcp
+      protocol: TCP
+    - containerPort: 81
+      name: serve-81-udp
+      protocol: UDP
+  nodeSelector:
+    vm: "0"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    pod: c
+  name: c
+  namespace: "x"
+spec:
+  containers:
+  - name: container
+    image: nginx
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 80
+      name: serve-80-tcp
+      protocol: TCP
+    - containerPort: 80
+      name: serve-80-udp
+      protocol: UDP
+    - containerPort: 81
+      name: serve-81-tcp
+      protocol: TCP
+    - containerPort: 81
+      name: serve-81-udp
+      protocol: UDP
+  nodeSelector:
+    vm: "0"
+---
+# y pods
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    pod: a
+  name: a
+  namespace: "y"
+spec:
+  containers:
+  - name: container
+    image: nginx
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 80
+      name: serve-80-tcp
+      protocol: TCP
+    - containerPort: 80
+      name: serve-80-udp
+      protocol: UDP
+    - containerPort: 81
+      name: serve-81-tcp
+      protocol: TCP
+    - containerPort: 81
+      name: serve-81-udp
+      protocol: UDP
+  nodeSelector:
+    vm: "1"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    pod: b
+  name: b
+  namespace: "y"
+spec:
+  containers:
+  - name: container
+    image: nginx
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 80
+      name: serve-80-tcp
+      protocol: TCP
+    - containerPort: 80
+      name: serve-80-udp
+      protocol: UDP
+    - containerPort: 81
+      name: serve-81-tcp
+      protocol: TCP
+    - containerPort: 81
+      name: serve-81-udp
+      protocol: UDP
+  nodeSelector:
+    vm: "1"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    pod: c
+  name: c
+  namespace: "y"
+spec:
+  containers:
+  - name: container
+    image: nginx
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 80
+      name: serve-80-tcp
+      protocol: TCP
+    - containerPort: 80
+      name: serve-80-udp
+      protocol: UDP
+    - containerPort: 81
+      name: serve-81-tcp
+      protocol: TCP
+    - containerPort: 81
+      name: serve-81-udp
+      protocol: UDP
+  nodeSelector:
+    vm: "1"
+---
+# z pods
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    pod: a
+  name: a
+  namespace: "z"
+spec:
+  containers:
+  - name: container
+    image: nginx
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 80
+      name: serve-80-tcp
+      protocol: TCP
+    - containerPort: 80
+      name: serve-80-udp
+      protocol: UDP
+    - containerPort: 81
+      name: serve-81-tcp
+      protocol: TCP
+    - containerPort: 81
+      name: serve-81-udp
+      protocol: UDP
+  nodeSelector:
+    vm: "2"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    pod: b
+  name: b
+  namespace: "z"
+spec:
+  containers:
+  - name: container
+    image: nginx
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 80
+      name: serve-80-tcp
+      protocol: TCP
+    - containerPort: 80
+      name: serve-80-udp
+      protocol: UDP
+    - containerPort: 81
+      name: serve-81-tcp
+      protocol: TCP
+    - containerPort: 81
+      name: serve-81-udp
+      protocol: UDP
+  nodeSelector:
+    vm: "2"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    pod: c
+  name: c
+  namespace: "z"
+spec:
+  containers:
+  - name: container
+    image: nginx
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 80
+      name: serve-80-tcp
+      protocol: TCP
+    - containerPort: 80
+      name: serve-80-udp
+      protocol: UDP
+    - containerPort: 81
+      name: serve-81-tcp
+      protocol: TCP
+    - containerPort: 81
+      name: serve-81-udp
+      protocol: UDP
+  nodeSelector:
+    vm: "2"
+---
+# x services
+apiVersion: v1
+kind: Service
+metadata:
+  name: s-x-a
+  namespace: x
+spec:
+  ports:
+  - name: service-port-tcp-80
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: service-port-udp-80
+    port: 80
+    protocol: UDP
+    targetPort: 80
+  - name: service-port-tcp-81
+    port: 81
+    protocol: TCP
+    targetPort: 81
+  - name: service-port-udp-81
+    port: 81
+    protocol: UDP
+    targetPort: 81
+  selector:
+    pod: a
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: s-x-b
+  namespace: x
+spec:
+  ports:
+  - name: service-port-tcp-80
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: service-port-udp-80
+    port: 80
+    protocol: UDP
+    targetPort: 80
+  - name: service-port-tcp-81
+    port: 81
+    protocol: TCP
+    targetPort: 81
+  - name: service-port-udp-81
+    port: 81
+    protocol: UDP
+    targetPort: 81
+  selector:
+    pod: b
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: s-x-c
+  namespace: x
+spec:
+  ports:
+  - name: service-port-tcp-80
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: service-port-udp-80
+    port: 80
+    protocol: UDP
+    targetPort: 80
+  - name: service-port-tcp-81
+    port: 81
+    protocol: TCP
+    targetPort: 81
+  - name: service-port-udp-81
+    port: 81
+    protocol: UDP
+    targetPort: 81
+  selector:
+    pod: c
+  type: ClusterIP
+---
+# y services
+apiVersion: v1
+kind: Service
+metadata:
+  name: s-y-a
+  namespace: "y"
+spec:
+  ports:
+  - name: service-port-tcp-80
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: service-port-udp-80
+    port: 80
+    protocol: UDP
+    targetPort: 80
+  - name: service-port-tcp-81
+    port: 81
+    protocol: TCP
+    targetPort: 81
+  - name: service-port-udp-81
+    port: 81
+    protocol: UDP
+    targetPort: 81
+  selector:
+    pod: a
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: s-y-b
+  namespace: "y"
+spec:
+  ports:
+  - name: service-port-tcp-80
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: service-port-udp-80
+    port: 80
+    protocol: UDP
+    targetPort: 80
+  - name: service-port-tcp-81
+    port: 81
+    protocol: TCP
+    targetPort: 81
+  - name: service-port-udp-81
+    port: 81
+    protocol: UDP
+    targetPort: 81
+  selector:
+    pod: b
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: s-y-c
+  namespace: "y"
+spec:
+  ports:
+  - name: service-port-tcp-80
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: service-port-udp-80
+    port: 80
+    protocol: UDP
+    targetPort: 80
+  - name: service-port-tcp-81
+    port: 81
+    protocol: TCP
+    targetPort: 81
+  - name: service-port-udp-81
+    port: 81
+    protocol: UDP
+    targetPort: 81
+  selector:
+    pod: c
+  type: ClusterIP
+---
+# z services
+apiVersion: v1
+kind: Service
+metadata:
+  name: s-z-a
+  namespace: "z"
+spec:
+  ports:
+  - name: service-port-tcp-80
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: service-port-udp-80
+    port: 80
+    protocol: UDP
+    targetPort: 80
+  - name: service-port-tcp-81
+    port: 81
+    protocol: TCP
+    targetPort: 81
+  - name: service-port-udp-81
+    port: 81
+    protocol: UDP
+    targetPort: 81
+  selector:
+    pod: a
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: s-z-b
+  namespace: "z"
+spec:
+  ports:
+  - name: service-port-tcp-80
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: service-port-udp-80
+    port: 80
+    protocol: UDP
+    targetPort: 80
+  - name: service-port-tcp-81
+    port: 81
+    protocol: TCP
+    targetPort: 81
+  - name: service-port-udp-81
+    port: 81
+    protocol: UDP
+    targetPort: 81
+  selector:
+    pod: b
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: s-z-c
+  namespace: "z"
+spec:
+  ports:
+  - name: service-port-tcp-80
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: service-port-udp-80
+    port: 80
+    protocol: UDP
+    targetPort: 80
+  - name: service-port-tcp-81
+    port: 81
+    protocol: TCP
+    targetPort: 81
+  - name: service-port-udp-81
+    port: 81
+    protocol: UDP
+    targetPort: 81
+  selector:
+    pod: c
+  type: ClusterIP
