@@ -11,6 +11,7 @@ policyFileName=netpols_in_ns.txt
 logFileName="npm.log"
 cleanupBeforeStarting=true
 runCPUCaptureInBackground=true
+skipNPMInstall=false
 
 ## arrays
 namespaces=(web0)
@@ -24,8 +25,7 @@ help () {
     echo
     echo "Usage:"
     echo "./npm-chaos.sh -i <npm-image> -p <npm-profile-name> [-n <experiment-name] [-a <action>] [-s] [-m|-c] [-x]"
-    echo "-h"
-    echo "    Print this help message."
+    echo
     echo "-i <npm-image>"
     echo "    The NPM image."
     echo "-p <npm-profile-name>"
@@ -42,6 +42,8 @@ help () {
     echo "    Specify an experiment name. Default is 'experiment'."
     echo "-x"
     echo "    Don't sleep."
+    echo "-h"
+    echo "    Print this help message."
 }
 
 if [[ "$#" == 0 ]]; then
@@ -235,18 +237,20 @@ if [[ $cleanupBeforeStarting == "true" ]]; then
 fi
 
 ## deploy NPM (fail if anything goes wrong)
-set -e
-echo "(re)deploying NPM with profile $profile and image $image"
-kubectl apply -f https://raw.githubusercontent.com/Azure/azure-container-networking/master/npm/azure-npm.yaml
-# swap azure-npm image with desired one
-kubectl set image daemonset/azure-npm -n kube-system azure-npm=$image
-# swap NPM profile with desired one
-kubectl apply -f $profilePath
-kubectl rollout restart ds azure-npm -n kube-system
-kubectl describe daemonset azure-npm -n kube-system
-set +e
-echo "sleeping to allow NPM pods to come back up after boot up"
-sleep 60
+if [[ $skipNPMInstall == false ]]; then
+    set -e
+    echo "(re)deploying NPM with profile $profile and image $image"
+    kubectl apply -f https://raw.githubusercontent.com/Azure/azure-container-networking/master/npm/azure-npm.yaml
+    # swap azure-npm image with desired one
+    kubectl set image daemonset/azure-npm -n kube-system azure-npm=$image
+    # swap NPM profile with desired one
+    kubectl apply -f $profilePath
+    kubectl rollout restart ds azure-npm -n kube-system
+    kubectl describe daemonset azure-npm -n kube-system
+    set +e
+    echo "sleeping to allow NPM pods to come back up after boot up"
+    sleep 60
+fi
 
 echo "pods to start:"
 kubectl get pods -A
@@ -256,7 +260,14 @@ echo "netpols to start:"
 kubectl get netpol -A
 echo
 
-npmPod=`eval kubectl get pod -A | grep -o "azure-npm-[0-9a-z][0-9a-z][0-9a-z][0-9a-z][0-9a-z]" -m 1`
+nodeName=`eval kubectl get node | grep -o -m 1 -P 'aks-nodepool\d+-\d+-vmss\d+'`
+if [[ -z $nodeName ]]; then
+    echo "Could not find a node name"
+    exit 1
+fi
+echo "will obersve node $nodeName"
+
+npmPod=`eval kubectl get pod -A | grep -o -m 1 -P "azure-npm-[0-9a-z]{5}"`
 if [[ -z "$npmPod" ]]; then
     echo "Error: NPM pod not found"
     exit 1
@@ -273,13 +284,14 @@ saveArtifactsAndExit () {
         conditionalSleep 60 # a minute might be overkill
         kubectl logs -n kube-system $npmPod > $logFilePath
     fi
+    
+    echo "waiting for any captures to finish (only necessary if cpu captures are happening in the background)"
+    wait
+    echo "final capture has finished"
     if [[ $captureMode != "none" ]]; then
         echo "Saving pprof results"
         kubectl cp -n kube-system $npmPod:$podResultsFolderName/ $localResultsFolderName/
     fi
-    echo "waiting for any captures to finish (only necessary if cpu captures are happening in the background)"
-    wait
-    echo "final capture has finished"
     exit 0
 }
 
@@ -291,11 +303,17 @@ execPod () {
 
 capture () {
     # first arg is the name for the pprof file
-    # second arg is the sleep time before capturing (for memory only)
-    podFilePath="$podResultsFolderName/$1.out"
+    podFileName="$podResultsFolderName/$1"
     if [[ $captureMode == "cpu" ]]; then
+        echo "CURRENT POD CPU: $1"
+        kubectl top -n kube-system pod $npmPod
+        echo "CURRENT NODE CPU: $1"
+        kubectl top node $nodeName
+        # collect prometheus metrics
+        execPod "curl localhost:10091/node-metrics -o $podFileName-node-metrics.out"
+        
         echo "getting pprof for cpu: $1"
-        commandString="curl localhost:10091/debug/pprof/profile -o $podFilePath"
+        commandString="curl localhost:10091/debug/pprof/profile -o $podFileName.out"
         if [[ $runCPUCaptureInBackground == "false" ]]; then
             execPod "$commandString"
         else
@@ -306,11 +324,25 @@ capture () {
         fi
     fi
     if [[ $captureMode == "memory" ]]; then
-        conditionalSleep $2
-        echo "CURRENT MEMORY: $1"
-        kubectl top -n kube-system pod $npmPod
-        echo "getting pprof for heap: $1"
-        execPod "curl localhost:10091/debug/pprof/heap -o $podFilePath"
+        # collect initial prometheus metricss
+        execPod "curl localhost:10091/node-metrics -o $podFileName-node-metrics-0-seconds.out"
+
+        # capture every 30 seconds until 90 seconds have passed
+        for i in $( seq 1 4); do
+            seconds=$(( 30 * ($i-1) ))
+            echo "CURRENT POD MEMORY: $1 - #$seconds seconds later"
+            kubectl top -n kube-system pod $npmPod
+            echo "CURRENT NODE MEMORY: $1 - #$seconds seconds later"
+            kubectl top node $nodeName
+            echo "getting pprof for heap: $1 - #$seconds seconds later"
+            execPod "curl localhost:10091/debug/pprof/heap -o $podFileName-$seconds-seconds.out"
+            if [[ $i != $times ]]; then
+                conditionalSleep 30
+            fi
+        done
+
+        # collect prometheus metrics after 90 seconds
+        execPod "curl localhost:10091/node-metrics -o $podFileName-node-metrics-90-seconds.out"
     fi
 }
 
@@ -320,13 +352,13 @@ if [[ $captureMode != "none" ]]; then
 fi
 
 if [[ $captureMode == "cpu" ]]; then
-    capture "dormant" 0
+    capture "dormant"
     echo "waiting for 'dormant' cpu capture to run"
     wait
     echo "'dormant' capture has finished"
 fi
 
-capture "initial" 0
+capture "initial"
 
 echo "Generating $numOfNs namespaces"
 generateNs
@@ -337,13 +369,13 @@ echo ${namespaces[@]}
 
 if [[ "$action" = "deleteallpolicies" ]]; then
     deleteAllNetpols
-    capture "after-deleting-all-netpols" 90
+    capture "after-deleting-all-netpols"
     saveArtifactsAndExit
 fi
 
 if [[ "$action" = "deletens" ]]; then
     cleanUpAllResources
-    capture "after-deleting-all-resources" 90
+    capture "after-deleting-all-resources"
     saveArtifactsAndExit
 fi
 
@@ -355,11 +387,11 @@ for i in ${namespaces[@]}; do
     kubectl create ns $i
     sed "s/test1replace/$i/g" podDeployments/nginx_deployment.yaml > podDeployments/deployment-$i.yml
 done
-capture "after-creating-namespaces" 90
+capture "after-creating-namespaces"
 
 # Apply all pod deployments
 kubectl apply -f podDeployments/
-capture "after-creating-deployments" 90
+capture "after-creating-deployments"
 
 #Now apply labels to the deployment
 for ns in ${namespaces[@]}; do
@@ -369,7 +401,7 @@ for ns in ${namespaces[@]}; do
         labelAllPodsInNs $ns
     done
 done
-capture "after-labeling-deployments" 90
+capture "after-labeling-deployments"
 
 #######################
 if [[ "$action" = "exitbeforenetpol" ]]; then
@@ -380,7 +412,7 @@ fi
 for ns in ${namespaces[@]}; do
     kubectl apply -n $ns -f networkPolicies/ 
 done
-capture "after-creating-netpols" 90
+capture "after-creating-netpols"
 
 if [[ "$action" = "exitbeforedeletes" ]]; then
     saveArtifactsAndExit
@@ -406,10 +438,9 @@ for i in $(seq 1 $numDeleteLoops);do
     conditionalSleep 5
 done
 
-capture "after-deleting-labels" 90
+capture "after-deleting-labels"
 
 # Cleaning up all resources
 cleanUpAllResources
-capture "after-deleting-all-resources" 90
+capture "after-deleting-all-resources"
 saveArtifactsAndExit
-
