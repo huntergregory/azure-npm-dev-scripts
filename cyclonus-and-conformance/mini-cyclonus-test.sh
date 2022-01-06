@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ## NOTE must be called with sudo for ipset/iptables to work if there's an unexpected result
-MAX_ROUNDS=10
+MAX_ROUNDS=1
 
 help () {
 	echo "Run a cyclonus test using a given network policy and test config."
@@ -44,10 +44,6 @@ while getopts ":sdh" option; do
 	esac
 done
 
-set -x
-sudo echo "get root access for ipset/iptables if needed later (use ctrl + C to deny and continue)"
-set +x
-
 if [[ $shouldSkipInstall == false ]]; then
     echo "Deleting existing test namespaces..."
     kubectl delete ns x y z
@@ -85,12 +81,13 @@ for i in $( seq 1 $MAX_ROUNDS ); do
         fi
         exitCode=$?
         if [[ $exitCode != $expectedCode ]]; then
-            echo "IPTABLES LIST OUTPUT"
-            sudo iptables -L -n
-            echo
-            echo "IPSET LIST OUTPUT"
-            sudo ipset -L
-            echo
+            # TODO kubectl exec for these in Linux
+            # echo "IPTABLES LIST OUTPUT"
+            # iptables -L -n
+            # echo
+            # echo "IPSET LIST OUTPUT"
+            # ipset -L
+            # echo
             echo "Got unexpected result for $srcNS/$srcPod to $dstNS/$dstPod via $protocol on port $port."
             if [[ $exitCode == 0 ]]; then
                 echo "Expected connection failure, but got success."
