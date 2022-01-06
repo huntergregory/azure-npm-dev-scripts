@@ -5,8 +5,10 @@ help () {
 	echo "Ping from a pod to a pod (or its service)."
 	echo
 	echo "Usage:"
-	echo "./ping-from-pod.sh srcNS srcPod dstNS dstPod [-m <mode>] [-r <port>] [-p <protocol>]"
+	echo "./ping-from-pod.sh srcNS srcPod dstNS dstPod [-s] [-m <mode>] [-r <port>] [-p <protocol>]"
 	echo
+	echo "-s"
+    echo "    Skip installation of curl on the pod."
 	echo "-m <mode>"
 	echo "    The default mode is pod-ip. Possible mode values are:"
 	echo "        - pod-ip"
@@ -29,8 +31,10 @@ srcPod=$2
 dstNS=$3
 dstPod=$4
 shift 4
-while getopts ":m:p:r:h" option; do
+while getopts ":m:p:r:sh" option; do
     case $option in
+		s)
+			shouldInstall=false;;
 		m)
 			mode=$OPTARG;;
 		r)
@@ -50,6 +54,9 @@ while getopts ":m:p:r:h" option; do
 	esac
 done
 
+if [[ -z $shouldInstall ]]; then
+	shouldInstall=true
+fi
 if [[ -z $mode ]]; then
 	mode="pod-ip"
 fi
@@ -58,15 +65,17 @@ if [[ -z $protocol ]]; then
 fi
 
 set -x
-# run this in the background
-kubectl exec -it -n $srcNS $srcPod -- bash -c "apt-get update && apt-get install curl --yes" &
+if [[ $shouldInstall == true ]]; then
+	# run this in the background
+	kubectl exec -it -n $srcNS $srcPod -- bash -c "apt-get update && apt-get install curl --yes" &
+fi
 
 svcName="s-$dstNS-$dstPod"
 
 if [[ $mode == "pod-ip" ]]; then
 	address=$(kubectl get -n $dstNS pod $dstPod -o jsonpath='{.status.podIP}')
 elif [[ $mode == "svc-domain-name" ]]; then
-	address="http://$svc.$dstNS.svc.cluster.local"
+	address="http://$svcName.$dstNS.svc.cluster.local"
 elif [[ $mode == "svc-cluster-ip" ]]; then
 	address=$(kubectl get -n $dstNS svc $svcName -o jsonpath='{.spec.clusterIP}')
 elif [[ $mode == "svc-external-ip" ]]; then
