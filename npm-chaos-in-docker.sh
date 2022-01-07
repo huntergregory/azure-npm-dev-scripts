@@ -30,10 +30,8 @@ help () {
     echo "Chaos args (must be specified last):"
     echo "    -n <experiment-name>"
     echo "        Specify an experiment name. Default is 'experiment'."
-    echo "    -m"
-    echo "        Capture pprof memory. Currently must specify one of -m or -c."
-    echo "    -c"
-    echo "        Capture pprof cpu. Currently must specify one of -m or -c."
+    echo "    -c <capture-mode"
+    echo "        Capture pprof for the specified mode. See possible modes with npm-chaos.sh -h"
     echo "    <other-chaos-args...>"
     echo "        Any other chaos args to pass to npm-chaos.sh. These args must come last."
 }
@@ -43,7 +41,9 @@ if [[ "$#" == 0 ]]; then
     exit 1
 fi
 
-while getopts ":f:dn:mch" option; do
+experimentName="experiment"
+shouldDeleteExistingContainer=false
+while getopts ":f:dn:c:h" option; do
     case $option in
         f)
             kubeConfigName=$OPTARG;;
@@ -51,20 +51,8 @@ while getopts ":f:dn:mch" option; do
             shouldDeleteExistingContainer=true;;
         n)
             experimentName=$OPTARG;;
-        m)
-            if [[ $haveCaptureMode == "true" ]]; then
-                echo "You can only specify one capture mode."
-                exit 1
-            fi
-            haveCaptureMode=true
-            captureMode="memory";;
         c)
-            if [[ $haveCaptureMode == "true" ]]; then
-                echo "You can only specify one capture mode."
-                exit 1
-            fi
-            haveCaptureMode=true
-            captureMode="cpu";;
+            captureMode=$OPTARG;;
         h)
             help
             exit 0;;
@@ -76,11 +64,8 @@ if [[ -z $kubeConfigName ]]; then
 	exit 1
 fi
 if [[ -z $captureMode ]]; then
-	echo "capture mode (either -m or -c) is currently a required chaos arg for this script"
+	echo "capture mode is currently a required chaos arg for this script"
 	exit 1
-fi
-if [[ $shouldDeleteExistingContainer != "true" ]]; then
-    shouldDeleteExistingContainer=false
 fi
 
 ## shift the args to the chaos args

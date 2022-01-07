@@ -1,17 +1,18 @@
 #!/bin/bash
 ## CONSTANTS
 start=1
-numOfNs=50
+numOfNs=50 # 15 replicas per namespace
 numofLabels=100
 numofLoopForLabels=1
 numDeleteLoops=2
 
+cleanupBeforeStarting=true
 podFileName=pods_in_ns.txt
 policyFileName=netpols_in_ns.txt
 logFileName="npm.log"
-cleanupBeforeStarting=true
 runCPUCaptureInBackground=true
-skipNPMInstall=false
+runTraceCaptureInBackground=true
+traceSeconds=30
 
 ## arrays
 namespaces=(web0)
@@ -19,27 +20,32 @@ labelsArray=(chaos=true)
 
 ## PARAMETERS
 help () {
-    echo "This script creates resources and can capture pprof for cpu or memory."
+    echo "This script creates resources and can capture performance metrics e.g. exec times, cpu, memory, and tracing."
     echo "The script can create namespaces, deployments, and network policies, and label the deployments."
     echo "It can be as chaotic as you want based on global constants in the script."
     echo
     echo "Usage:"
-    echo "./npm-chaos.sh -i <npm-image> -p <npm-profile-name> [-n <experiment-name] [-a <action>] [-s] [-m|-c] [-x]"
+    echo "./npm-chaos.sh {-s}|{-i <npm-image> -p <npm-profile-name> [-n <experiment-name] [-d <delete-action>] [-c <capture-mode>] [-a <capture-area>] [-l] [-x]"
     echo
+    echo "Must specify one of -s or both -i and -p."
+    echo "Example: to delete all network policies and exit: ./npm-chaos.sh -s -d netpols-and-exit"
+    echo
+    echo "-s"
+    echo "    Skip NPM installation and restart."
     echo "-i <npm-image>"
     echo "    The NPM image."
     echo "-p <npm-profile-name>"
     echo "    The name of the NPM profile (without the file path or '.yaml')."
-    echo "-a <action>"
-    echo "    Specify an action. Can be one of 'deleteallpolicies', 'deletens', 'exitbeforenetpol', or 'exitbeforedeletes'. Default is 'none'."
-    echo "-s"
-    echo "    Save the NPM log after finishing. Will restart the daemonset to get a fresh log."
-    echo "-m"
-    echo "    Capture pprof memory. Can specify at most one of -m or -c."
-    echo "-c"
-    echo "    Capture pprof cpu. Can specify at most one of -m or -c."
     echo "-n <experiment-name>"
     echo "    Specify an experiment name. Default is 'experiment'."
+    echo "-d <delete-action>"
+    echo "    Specify a delete action. Default is 'all-after'. Other options are 'netpols-and-exit', 'ns-and-exit', 'labels-randomly', 'pods-randomly', 'netpols-randomly', or 'none'. 'labels-randomly' is currently unimplemented."
+    echo "-l"
+    echo "    Save the NPM log after finishing."
+    echo "-c <capture-mode"
+    echo "    Capture pprof for the specified mode. Can be 'cpu', 'memory', or 'trace'."
+    echo "-a <capture-area>"
+    echo "    Default is 'all'. Can be set to 'initial', 'after-creating-netpols', etc. to only perform one capture (specifically, the line of code: 'capture \"<capture-area>\"')."
     echo "-x"
     echo "    Don't sleep."
     echo "-h"
@@ -50,71 +56,56 @@ if [[ "$#" == 0 ]]; then
     help
     exit 1
 fi
-while getopts ":i:p:n:a:smcxh" option; do
+
+skipNPMInstall=false
+experimentName="experiment"
+captureMode="none"
+shouldSaveLog=false
+shouldSleep=true
+deleteAction="all-after"
+captureArea="all"
+while getopts ":i:p:n:d:c:a:slxh" option; do
     case $option in
         i)
             image=$OPTARG;;
         p)
             profile=$OPTARG;;
-        a)
-            action=$OPTARG;;
+        d)
+            deleteAction=$OPTARG;;
         s)
+            skipNPMInstall=true;;
+        l)
             shouldSaveLog=true;;
-        m)
-            if [[ $haveCaptureMode == "true" ]]; then
-                echo "You can only specify one capture mode."
-                exit 1
-            fi
-            haveCaptureMode=true
-            captureMode="memory";;
         c)
-            if [[ $haveCaptureMode == "true" ]]; then
-                echo "You can only specify one capture mode."
-                exit 1
-            fi
-            haveCaptureMode=true
-            captureMode="cpu";;
+            captureMode=$OPTARG;;
+        a)
+            captureArea=$OPTARG;;
         n)
             experimentName=$OPTARG;;
         x)
             shouldSleep=false;;
-        h) # help
+        h)
             help
             exit 0;;
         \?) # Invalid option
-            echo "Error: Given an invalid option"
-	    echo "used args: $@"
+            echo "Error: invalid option: -$OPTARG" >&2
             exit;;
    esac
 done
 
-if [[ -z "$image" ]]; then
-    echo "Error: No image specified. Use -h for extra info."
-    exit 1
-fi
-if [[ -z "$profile" ]]; then
-    echo "Error: No profile specified. Use -h for extra info."
-    exit 1
-fi
-
-if [[ -z "$experimentName" ]]; then
-    experimentName="experiment"
-fi
-if [[ -z "$captureMode" ]]; then
-    captureMode="none"
-else
-    if [[ -z "$action" ]]; then
-	action="none" # TODO set default action here if desired
+if [[ $skipNPMInstall == false ]]; then
+    if [[ -z $image ]]; then
+        echo "Error: you must specify an image with -i."
+        exit 1
+    fi
+    if [[ -z $profile ]]; then
+        echo "Error: you must specify a profile with -p."
+        exit 1
     fi
 fi
-if [[ $shouldSaveLog != "true" ]]; then
-    shouldSaveLog=false
-fi
-if [[ $shouldSleep != "false" ]]; then
-    shouldSleep=true
-fi
-if [[ -z "$action" ]]; then
-    action="none"
+if [[ $captureMode != 'none' && $captureMode != 'cpu' && $captureMode != 'memory' && $captureMode != 'trace' ]]; then
+    echo "Error: you must specify a valid capture mode with -c."
+    exit 1
 fi
 
 profilePath="npm-profiles-with-pprof/$profile.yaml"
@@ -138,11 +129,13 @@ set +e
 set +x
 cat > $localResultsFolderName/chaos-parameters.txt << EOF
 Running NPM Chaos with the following config:
+skip install/restart: $skipNPMInstall
 image: $image
 profile: $profilePath
 capture mode: $captureMode
+capture area: $captureArea
 experiment name: $experimentName
-action: $action
+delete action: $deleteAction
 save log: $shouldSaveLog
 sleep: $shouldSleep
 
@@ -153,6 +146,8 @@ label loops: $numofLoopForLabels
 delete loops: $numDeleteLoops
 cleanup before starting: $cleanupBeforeStarting
 run CPU capture in background: $runCPUCaptureInBackground
+run trace capture in background: $runTraceCaptureInBackground
+trace seconds: $traceSeconds
 
 EOF
 
@@ -207,7 +202,6 @@ deleteAllNetpols () {
     for ns in ${namespaces[@]}; do
         kubectl get netpol -n $ns | grep -v "NAME" | awk '{print $1}' > netpols_in_ns.txt
 
-        #get 10 random netpols and delete them
         polname=$(cat netpols_in_ns.txt | xargs)
         kubectl delete netpol -n $ns $polname
     done
@@ -231,13 +225,26 @@ conditionalSleep () {
 }
 
 ## BEGIN SCRIPT
-set -x
+# set -x
+if [[ "$deleteAction" = "netpols-and-exit" ]]; then
+    deleteAllNetpols
+    exit 0
+fi
+
+if [[ "$deleteAction" = "ns-and-exit" ]]; then
+    cleanUpAllResources
+    exit 0
+fi
+
 if [[ $cleanupBeforeStarting == "true" ]]; then
     cleanUpAllResources
 fi
 
 ## deploy NPM (fail if anything goes wrong)
-if [[ $skipNPMInstall == false ]]; then
+if [[ $skipNPMInstall == true ]]; then
+    echo "Skipping NPM installation/restart"
+else
+    echo "Deploying NPM"
     set -e
     echo "(re)deploying NPM with profile $profile and image $image"
     kubectl apply -f https://raw.githubusercontent.com/Azure/azure-container-networking/master/npm/azure-npm.yaml
@@ -303,6 +310,15 @@ execPod () {
 
 capture () {
     # first arg is the name for the pprof file
+    wait # for other captures to finish
+
+    if [[ $captureArea != "all" && $captureArea != $1 ]]; then
+        echo "skipping $1 capture"
+        return
+    else
+        echo "capturing $1"
+    fi
+
     podFileName="$podResultsFolderName/$1"
     if [[ $captureMode == "cpu" ]]; then
         echo "CURRENT POD CPU: $1"
@@ -317,18 +333,22 @@ capture () {
         if [[ $runCPUCaptureInBackground == "false" ]]; then
             execPod "$commandString"
         else
-            wait # for any previous capture to finish (only would happen if the number of namesaces etc. is low)
-            # pprof profile looks at CPU usage over 30 seconds, so we want to record while NPM calculations are happening
+            # we want to record while NPM calculations are happening
             # the & makes the command run in the background
             execPod "$commandString" &
         fi
     fi
+
     if [[ $captureMode == "memory" ]]; then
-        # collect initial prometheus metricss
+        # collect initial prometheus metrics
         execPod "curl localhost:10091/node-metrics -o $podFileName-node-metrics-0-seconds.out"
 
-        # capture every 30 seconds until 90 seconds have passed
-        for i in $( seq 1 4); do
+        # capture every 30 seconds until 90 seconds have passed (unless 'don't sleep' option is included, in which case we'll just run once)
+        times=1
+        if [[ $shouldSleep == "true" ]]; then
+            times=4
+        fi
+        for i in $( seq 1 $times); do
             seconds=$(( 30 * ($i-1) ))
             echo "CURRENT POD MEMORY: $1 - #$seconds seconds later"
             kubectl top -n kube-system pod $npmPod
@@ -337,25 +357,37 @@ capture () {
             echo "getting pprof for heap: $1 - #$seconds seconds later"
             execPod "curl localhost:10091/debug/pprof/heap -o $podFileName-$seconds-seconds.out"
             if [[ $i != $times ]]; then
-                conditionalSleep 30
+                sleep 30
             fi
         done
+        if [[ $shouldSleep == "true" ]]; then
+            # collect prometheus metrics after 90 seconds
+            execPod "curl localhost:10091/node-metrics -o $podFileName-node-metrics-$seconds-seconds.out"
+        fi
+    fi
 
-        # collect prometheus metrics after 90 seconds
-        execPod "curl localhost:10091/node-metrics -o $podFileName-node-metrics-90-seconds.out"
+    if [[ $captureMode == "trace" ]]; then
+        echo "getting pprof for trace: $1"
+        if [[ $runTraceCaptureInBackground == "false" ]]; then
+            execPod "$commandString"
+        else
+            wait # for any previous capture to finish (only would happen if the number of namesaces etc. is low)
+            # pprof profile looks at CPU usage over 30 seconds, so we want to record while NPM calculations are happening
+            # the & makes the command run in the background
+            execPod "$commandString" &
+        fi
+        execPod "curl localhost:10091/debug/pprof/trace?seconds=$traceSeconds -o $podFileName.out" &
     fi
 }
 
 if [[ $captureMode != "none" ]]; then
     echo "setting up npm pod environement for capturing"
-    execPod "mkdir -p $podResultsFolderName && apt update && apt-get install curl --yes"
+    execPod "rm"
+    execPod "rm -rf $podResultsFolderName && mkdir -p $podResultsFolderName && apt update && apt-get install curl --yes"
 fi
 
-if [[ $captureMode == "cpu" ]]; then
+if [[ $captureMode != "memory" ]]; then
     capture "dormant"
-    echo "waiting for 'dormant' cpu capture to run"
-    wait
-    echo "'dormant' capture has finished"
 fi
 
 capture "initial"
@@ -363,22 +395,7 @@ capture "initial"
 echo "Generating $numOfNs namespaces"
 generateNs
 echo "Done Generating NS"
-
 echo ${namespaces[@]}
-
-
-if [[ "$action" = "deleteallpolicies" ]]; then
-    deleteAllNetpols
-    capture "after-deleting-all-netpols"
-    saveArtifactsAndExit
-fi
-
-if [[ "$action" = "deletens" ]]; then
-    cleanUpAllResources
-    capture "after-deleting-all-resources"
-    saveArtifactsAndExit
-fi
-
 
 kubectl create ns test1replace
 #delete old pod deployments
@@ -403,44 +420,62 @@ for ns in ${namespaces[@]}; do
 done
 capture "after-labeling-deployments"
 
-#######################
-if [[ "$action" = "exitbeforenetpol" ]]; then
-    saveArtifactsAndExit
-fi
-#######################
-
 for ns in ${namespaces[@]}; do
     kubectl apply -n $ns -f networkPolicies/ 
 done
 capture "after-creating-netpols"
 
-if [[ "$action" = "exitbeforedeletes" ]]; then
-    saveArtifactsAndExit
-fi
+case $deleteAction in 
+    labels-randomly)
+        echo "Deleting Random Labels"
+        for i in $(seq 1 $numDeleteLoops);do
+            echo "Starting delete loop #$i"
+            for ns in ${namespaces[@]}; do
+                # TODO actually delete the labels
+                #Re-add labels to new pods
+                labelAllPodsInNs $ns
+                conditionalSleep 2
+            done
+            if [[ $i != $numDeleteLoops ]]; then
+                conditionalSleep 5
+            fi
+        done
+        capture "after-deleting-labels"
+        ;;
+    netpols-randomly)
+        echo "Deleting Random Policies"
+        for i in $(seq 1 $numDeleteLoops);do
+            echo "Starting delete loop #$i"
+            for ns in ${namespaces[@]}; do
+                echo "Deleting random policies in namespace $ns"
+                deleteRandomPoliciesNs $ns
+                conditionalSleep 3
+            done
+            if [[ $i != $numDeleteLoops ]]; then
+                conditionalSleep 5
+            fi
+        done
+        capture "after-deleting-netpols"
+        ;;
+    pods-randomly)
+        echo "Deleting Random Pods"
+        for i in $(seq 1 $numDeleteLoops);do
+            echo "Starting delete loop #$i"
+            for ns in ${namespaces[@]}; do
+                echo "Deleting random pods in namespace $ns"
+                deleteRandomPodsNs $ns
+                conditionalSleep 2
+            done
+            if [[ $i != $numDeleteLoops ]]; then
+                conditionalSleep 5
+            fi
+        done
+        capture "after-deleting-pods"
+        ;;
+    all-after)
+        cleanUpAllResources
+        capture "after-deleting-all-resources"
+        ;;
+esac
 
-echo "#####################Deleting random pods and policies#############################"
-for i in $(seq 1 $numDeleteLoops);do
-    echo "/////////////////Welcome $i times/////////////////"
-
-    for ns in ${namespaces[@]}; do
-        echo "Deleting random pods in namespace $ns"
-        #list and delete random pods in the namespace
-        deleteRandomPodsNs $ns
-        conditionalSleep 3
-        #Re-add labels to new pods
-        labelAllPodsInNs $ns
-        conditionalSleep 2        
-        #list and delete random netpols in the namespace
-        deleteRandomPoliciesNs $ns
-        conditionalSleep 2
-    done
-    
-    conditionalSleep 5
-done
-
-capture "after-deleting-labels"
-
-# Cleaning up all resources
-cleanUpAllResources
-capture "after-deleting-all-resources"
 saveArtifactsAndExit
