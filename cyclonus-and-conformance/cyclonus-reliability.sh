@@ -99,16 +99,10 @@ if [[ $exit_code -ne 0 ]]; then
     docker build -t $dockerImage -f k8s-and-go.Dockerfile .
 fi
 
-echo "SETTING UP ALL CLUSTERS @ $(date)"
-# az group create --name $resourceGroup --location westus2
-seq 1 $count | xargs -n 1 -P $count -I {} bash -c "az aks create -g $resourceGroup -n '$experimentName{}' --node-count 3 --network-plugin azure --network-policy azure"
-
 echo "SETTING UP ALL CONTAINERS"
 for i in $(seq 1 $count); do
     containerName=$experimentName$i
-    clusterName=$resourceGroup--$experimentName$i
-    echo "Creating container $containerName for cluster $clusterName."
-
+    echo "Creating container $containerName"
     ## create and setup a container with the kube config
     docker ps | grep ${containerName} || exit_code=$?
     if [[ $exit_code -eq 0 ]]; then
@@ -121,12 +115,22 @@ for i in $(seq 1 $count); do
             exit 1
         fi
     fi
-
     docker run -it -d --name $containerName $dockerImage
     docker exec $containerName mkdir -p $dockerBaseFolder
     # copy the repo over to the container
     docker cp ../. $containerName:$dockerBaseFolder/
     docker exec $containerName chmod +x $dockerCyclonusFile
+done
+
+echo "SETTING UP ALL CLUSTERS @ $(date)"
+# az group create --name $resourceGroup --location westus2
+seq 1 $count | xargs -n 1 -P $count -I {} bash -c "az aks create -g $resourceGroup -n '$experimentName{}' --node-count 3 --network-plugin azure --network-policy azure"
+
+echo "CONFIGURING CONTAINERS WITH THEIR CLUSTERS @ $(date)"
+for i in $(seq 1 $count); do
+    containerName=$experimentName$i
+    clusterName=$resourceGroup--$experimentName$i
+    echo "Setting up $containerName for cluster $clusterName."
     dockerKubeFolder=/root/.kube
     docker exec $containerName mkdir -p $dockerKubeFolder
     folder=$localResultsFolder/container$i
