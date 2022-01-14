@@ -125,7 +125,7 @@ for i in $(seq 1 $count); do
 done
 
 echo "SETTING UP ALL CLUSTERS @ $(date)"
-# az group create --name $resourceGroup --location westus2
+az group create --name $resourceGroup --location westus2
 seq 1 $count | xargs -n 1 -P $numParallel -I {} bash -c "az aks create -g $resourceGroup -n '$experimentName{}' --node-count 3 --network-plugin azure --network-policy azure"
 
 echo "CONFIGURING CONTAINERS WITH THEIR CLUSTERS @ $(date)"
