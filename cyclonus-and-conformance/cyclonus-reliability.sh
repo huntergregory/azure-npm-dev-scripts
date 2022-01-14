@@ -4,6 +4,7 @@
 dockerImage=k8s-and-go
 dockerBaseFolder=/azure-npm-dev-scripts
 dockerCyclonusFile=$dockerBaseFolder/cyclonus-and-conformance/cyclonus.sh
+numParallel=0
 
 ## PARAMETERS
 help () {
@@ -84,6 +85,7 @@ Using the following constants:
 dockerImage: $dockerImage
 localResultsFolder: $localResultsFolder
 dockerResultsFolder: $dockerResultsFolder
+num parallel: $numParallel
 
 EOF
 
@@ -124,7 +126,7 @@ done
 
 echo "SETTING UP ALL CLUSTERS @ $(date)"
 # az group create --name $resourceGroup --location westus2
-seq 1 $count | xargs -n 1 -P $count -I {} bash -c "az aks create -g $resourceGroup -n '$experimentName{}' --node-count 3 --network-plugin azure --network-policy azure"
+seq 1 $count | xargs -n 1 -P $numParallel -I {} bash -c "az aks create -g $resourceGroup -n '$experimentName{}' --node-count 3 --network-plugin azure --network-policy azure"
 
 echo "CONFIGURING CONTAINERS WITH THEIR CLUSTERS @ $(date)"
 for i in $(seq 1 $count); do
@@ -143,7 +145,7 @@ set +e
 
 ## EXPERIMENTS
 echo "RUNNING ALL CONTAINERS @ $(date)"
-seq 1 $count | xargs -n 1 -P $count -I {} bash -c "docker exec '$experimentName{}' $dockerCyclonusFile -i $image -p $profile"
+seq 1 $count | xargs -n 1 -P $numParallel -I {} bash -c "docker exec '$experimentName{}' $dockerCyclonusFile -i $image -p $profile"
 
 for i in $( seq 1 $count ); do
     containerName=$experimentName$i
