@@ -4,6 +4,9 @@ localResultsFolderName=../../npm-cyclonus-results
 resultsFile=$localResultsFolderName/cyclonus-test.txt
 npmLogsFile=$localResultsFolderName/npm-logs.txt
 
+initializeTimeout=60
+jobTimeout="180m"
+
 ## PARAMETERS
 help () {
 	echo "This script runs cyclonus."
@@ -73,7 +76,7 @@ else
     kubectl rollout restart ds azure-npm -n kube-system
     set +e
     echo "sleeping to allow NPM pods to come back up after boot up"
-    sleep 45
+    sleep $initializeTimeout
 fi
 
 npmPod=`eval kubectl get pod -A | grep -o -m 1 -P "azure-npm-[0-9a-z]{5}"`
@@ -95,7 +98,7 @@ sleep 5
 kubectl wait --for=condition=ready --timeout=5m pod -n kube-system -l job-name=cyclonus
 
 echo "cyclonus job is ready. Waiting for the job to complete"
-kubectl wait --for=condition=completed --timeout=180m pod -n kube-system -l job-name=cyclonus
+kubectl wait --for=condition=completed --timeout=$jobTimeout pod -n kube-system -l job-name=cyclonus
 
 # grab the job logs
 echo "cylconus job is complete. Grabbing logs"
