@@ -155,4 +155,4 @@ for i in $( seq 1 $count ); do
     docker cp $containerName:$dockerNPMLogsFile $folder
 done
 
-az group delete -n $resourceGroup -y
+# az group delete -n $resourceGroup -y
