@@ -4,7 +4,7 @@ localResultsFolderName=../../npm-cyclonus-results
 resultsFile=$localResultsFolderName/cyclonus-test.txt
 npmLogsFile=$localResultsFolderName/npm-logs.txt
 
-initializeTimeout=60
+initializeTimeout=120
 jobTimeout="180m"
 
 ## PARAMETERS
@@ -102,6 +102,7 @@ kubectl wait --for=condition=completed --timeout=$jobTimeout pod -n kube-system 
 
 # grab the job logs
 echo "cylconus job is complete. Grabbing logs"
+set -e
 kubectl logs -n kube-system job.batch/cyclonus > "$resultsFile"
 kubectl logs -n kube-system $npmPod > "$npmLogsFile"
 
@@ -110,8 +111,8 @@ kubectl delete --ignore-not-found=true sa cyclonus -n kube-system
 kubectl delete --ignore-not-found=true -f https://raw.githubusercontent.com/Azure/azure-container-networking/master/test/cyclonus/install-cyclonus.yaml
 
 # if 'failure' is in the logs, fail; otherwise succeed
-cat "$resultsFile" | grep -q "failed"
-exitCode=$?
+exitCode=0
+cat "$resultsFile" | grep -q "failed" || exitCode=$?
 endOfMessage=" for image $image and profile $profile"
 if [[ $skipNPMInstall == true ]]; then
     endOfMessage=""

@@ -145,7 +145,7 @@ set +e
 
 ## EXPERIMENTS
 echo "RUNNING ALL CONTAINERS @ $(date)"
-seq 1 $count | xargs -n 1 -P $numParallel -I {} bash -c "docker exec '$experimentName{}' $dockerCyclonusFile -i $image -p $profile"
+seq 1 $count | xargs -n 1 -P $numParallel -I {} bash -c "docker exec '$experimentName{}' $dockerCyclonusFile -i $image -p $profile; echo 'FINISHED RUNNING TEST FOR CONTAINER $experimentName{} @ $(date)'" | tee $localResultsFolder/all-test-output.txt
 
 for i in $( seq 1 $count ); do
     containerName=$experimentName$i
