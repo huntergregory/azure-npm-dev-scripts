@@ -66,8 +66,7 @@ fi
 # results folder needs to be outside the repo so we don't copy it to the docker container
 localResultsFolder=../../npm-cyclonus-reliability-results/$experimentName
 dockerResultsFolder=/npm-cyclonus-results
-dockerCyclonusResultsFile=$dockerResultsFolder/cyclonus-test.txt
-dockerNPMLogsFile=$dockerResultsFolder/npm-logs.txt
+
 
 ## display and write config to file
 set -ex
@@ -145,14 +144,13 @@ set +e
 
 ## EXPERIMENTS
 echo "RUNNING ALL CONTAINERS @ $(date)"
-seq 1 $count | xargs -n 1 -P $numParallel -I {} bash -c "docker exec '$experimentName{}' $dockerCyclonusFile -i $image -p $profile; echo 'FINISHED RUNNING TEST FOR CONTAINER $experimentName{} @ $(date)'" | tee $localResultsFolder/all-test-output.txt
+seq 1 $count | xargs -n 1 -P $numParallel -I {} bash -c "sleep {}; docker exec '$experimentName{}' $dockerCyclonusFile -i $image -p $profile; echo 'FINISHED RUNNING TEST FOR CONTAINER $experimentName{} @ $(date)'; echo " | tee $localResultsFolder/all-test-output.txt
 
 for i in $( seq 1 $count ); do
     containerName=$experimentName$i
     folder=$localResultsFolder/container$i
     echo "Copying results from container $containerName to $folder."
-    docker cp $containerName:$dockerCyclonusResultsFile $folder
-    docker cp $containerName:$dockerNPMLogsFile $folder
+    docker cp $containerName:$dockerResultsFolder/. $folder
 done
 
 # az group delete -n $resourceGroup -y

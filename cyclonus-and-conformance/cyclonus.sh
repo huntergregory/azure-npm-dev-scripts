@@ -3,6 +3,7 @@
 localResultsFolderName=../../npm-cyclonus-results
 resultsFile=$localResultsFolderName/cyclonus-test.txt
 npmLogsFile=$localResultsFolderName/npm-logs.txt
+secondNPMLogsFile=$localResultsFolderName/npm-new-pod-logs.txt
 
 initializeTimeout=120
 jobTimeout="180m"
@@ -12,7 +13,7 @@ help () {
 	echo "This script runs cyclonus."
     echo
     echo "Usage:"
-    echo "./cylconus.sh [-i <npm-image> -p <npm-profile-name>] [-s]"
+    echo "./cyclonus.sh [-i <npm-image> -p <npm-profile-name>] [-s]"
     echo "-i <npm-image>"
     echo "    The NPM image. Must include this or use -s."
     echo "-p <npm-profile-name>"
@@ -79,16 +80,15 @@ else
     sleep $initializeTimeout
 fi
 
-npmPod=`eval kubectl get pod -A | grep -o -m 1 -P "azure-npm-[0-9a-z]{5}"`
-if [[ -z "$npmPod" ]]; then
-    echo "Error: NPM pod not found"
-    exit 1
-fi
-echo "will observe NPM pod: $npmPod"
 # print out image version
-kubectl get pod -n kube-system $npmPod -o yaml | grep image: -m 1
+echo "NPM image version:"
+kubectl get pod -n kube-system -l k8s-app=azure-npm -o yaml | grep image: -m 1
 
 # set up cyclonus
+kubectl delete --ignore-not-found=true clusterrolebinding cyclonus
+kubectl delete --ignore-not-found=true sa cyclonus -n kube-system
+kubectl delete --ignore-not-found=true -f https://raw.githubusercontent.com/Azure/azure-container-networking/master/test/cyclonus/install-cyclonus.yaml
+
 kubectl create clusterrolebinding cyclonus --clusterrole=cluster-admin --serviceaccount=kube-system:cyclonus
 kubectl create sa cyclonus -n kube-system
 kubectl create -f https://raw.githubusercontent.com/Azure/azure-container-networking/master/test/cyclonus/install-cyclonus.yaml
@@ -98,17 +98,36 @@ sleep 5
 kubectl wait --for=condition=ready --timeout=5m pod -n kube-system -l job-name=cyclonus
 
 echo "cyclonus job is ready. Waiting for the job to complete"
+allNPMPods=`eval kubectl get pod -A | grep -o -P "azure-npm-[0-9a-z]{5}"`
+npmPod=`eval kubectl get pod -A | grep -o -m 1 -P "azure-npm-[0-9a-z]{5}"`
+if [[ -z "$npmPod" ]]; then
+    echo "Error: NPM pod not found"
+    exit 1
+fi
+echo "NPM pods to start: $allNPMPods"
+kubectl get pod -A | grep "azure-npm-"
+echo "observing NPM pod: $npmPod"
+
+kubectl logs -f -n kube-system job.batch/cyclonus > $resultsFile &
+kubectl logs -f -n kube-system $npmPod > $npmLogsFile &
 kubectl wait --for=condition=completed --timeout=$jobTimeout pod -n kube-system -l job-name=cyclonus
 
-# grab the job logs
-echo "cylconus job is complete. Grabbing logs"
-set -e
-kubectl logs -n kube-system job.batch/cyclonus > "$resultsFile"
-kubectl logs -n kube-system $npmPod > "$npmLogsFile"
+# kill the log tailing processes once cyclonus is completed
+pkill -P $$
 
-kubectl delete --ignore-not-found=true clusterrolebinding cyclonus 
-kubectl delete --ignore-not-found=true sa cyclonus -n kube-system
-kubectl delete --ignore-not-found=true -f https://raw.githubusercontent.com/Azure/azure-container-networking/master/test/cyclonus/install-cyclonus.yaml
+echo "cyclonus job is complete."
+if [[ $allNPMPods != `eval kubectl get pod -A | grep -o -P "azure-npm-[0-9a-z]{5}"` ]]; then
+    echo "WARNING: NPM pods have changed!"
+    kubectl get pod -A | grep "azure-npm-"
+
+    npmPod=`eval kubectl get pod -A | grep -o -m 1 -P "azure-npm-[0-9a-z]{5}"`
+    if [[ -z "$npmPod" ]]; then
+        echo "Error: NPM pod not found when trying to get logs"
+    else
+        echo "getting NPM logs from $npmPod"
+        kubectl logs -n kube-system $npmPod > $secondNPMLogsFile
+    fi
+fi
 
 # if 'failure' is in the logs, fail; otherwise succeed
 exitCode=0
@@ -117,11 +136,10 @@ endOfMessage=" for image $image and profile $profile"
 if [[ $skipNPMInstall == true ]]; then
     endOfMessage=""
 fi
-echo
 if [ $exitCode -eq 0 ]; then
-    echo "CYCLONUS RESULT: failed$endOfMessage"
+    echo "CYCLONUS RESULT: [FAILED]$endOfMessage"
     exit 1
 else
-    echo "CYCLONUS RESULT: succeeded$endOfMessage"
+    echo "CYCLONUS RESULT: [SUCCEEDED]$endOfMessage"
     exit 0
 fi
