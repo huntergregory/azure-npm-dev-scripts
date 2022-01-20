@@ -5,7 +5,7 @@ resultsFile=$localResultsFolderName/cyclonus-test.txt
 npmLogsFile=$localResultsFolderName/npm-logs.txt
 secondNPMLogsFile=$localResultsFolderName/npm-new-pod-logs.txt
 
-initializeTimeout=120
+initializeTimeout=180
 jobTimeout="180m"
 
 ## PARAMETERS
