@@ -146,7 +146,7 @@ for i in $(seq 1 $count); do
 done
 set +e
 
-sleep 60
+sleep $((count * 180))
 
 ## EXPERIMENTS
 echo "RUNNING ALL CONTAINERS @ $(date)"
