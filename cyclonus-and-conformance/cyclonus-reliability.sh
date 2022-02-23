@@ -4,7 +4,7 @@
 dockerImage=k8s-and-go
 dockerBaseFolder=/azure-npm-dev-scripts
 dockerCyclonusFile=$dockerBaseFolder/cyclonus-and-conformance/cyclonus.sh
-numParallel=0
+numParallel=3
 
 ## PARAMETERS
 help () {
@@ -124,8 +124,12 @@ for i in $(seq 1 $count); do
 done
 
 echo "SETTING UP ALL CLUSTERS @ $(date)"
-az group create --name $resourceGroup --location westus2
-seq 1 $count | xargs -n 1 -P $numParallel -I {} bash -c "az aks create -g $resourceGroup -n '$experimentName{}' --node-count 3 --network-plugin azure --network-policy azure"
+az group create --name $resourceGroup --location centralus
+for i in $(seq 1 $count); do
+    containerName=$experimentName$i
+    az aks create -g $resourceGroup -n $containerName --node-count 3 --network-plugin azure --network-policy azure
+done
+# seq 1 $count | xargs -n 1 -P $numParallel -I {} bash -c "az aks create -g $resourceGroup -n '$experimentName{}' --node-count 3 --network-plugin azure --network-policy azure"
 
 echo "CONFIGURING CONTAINERS WITH THEIR CLUSTERS @ $(date)"
 for i in $(seq 1 $count); do
@@ -141,6 +145,8 @@ for i in $(seq 1 $count); do
     docker cp $kubeConfigFile $containerName:$dockerKubeFolder/config
 done
 set +e
+
+sleep $((count * 180))
 
 ## EXPERIMENTS
 echo "RUNNING ALL CONTAINERS @ $(date)"
