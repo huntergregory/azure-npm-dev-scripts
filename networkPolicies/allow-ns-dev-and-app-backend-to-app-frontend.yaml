@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: deny-all-policy
+  name: allow-ns-dev-and-app-backend-to-app-frontend
 spec:
   policyTypes:
     - Ingress

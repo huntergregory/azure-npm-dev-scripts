@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-backend-to-frontend-on-port-53-policy
+  name: allow-app-frontend-tcp-port-or-udp-port-53
 spec:
   policyTypes:
     - Egress
