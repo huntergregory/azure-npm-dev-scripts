@@ -6,6 +6,7 @@ numofLabels=100
 numofLoopForLabels=1
 numDeleteLoops=2
 
+createDeployments=false
 cleanupBeforeStarting=true
 podFileName=pods_in_ns.txt
 policyFileName=netpols_in_ns.txt
@@ -141,6 +142,7 @@ sleep: $shouldSleep
 
 Using the following constants:
 namespaces: $numOfNs
+create pods and labels: $createDeployments
 labels: $numofLabels
 label loops: $numofLoopForLabels
 delete loops: $numDeleteLoops
@@ -382,7 +384,6 @@ capture () {
 
 if [[ $captureMode != "none" ]]; then
     echo "setting up npm pod environement for capturing"
-    execPod "rm"
     execPod "rm -rf $podResultsFolderName && mkdir -p $podResultsFolderName && apt update && apt-get install curl --yes"
 fi
 
@@ -397,28 +398,30 @@ generateNs
 echo "Done Generating NS"
 echo ${namespaces[@]}
 
-kubectl create ns test1replace
-#delete old pod deployments
-rm podDeployments/deployment*.yml
-for i in ${namespaces[@]}; do
-    kubectl create ns $i
-    sed "s/test1replace/$i/g" podDeployments/nginx_deployment.yaml > podDeployments/deployment-$i.yml
-done
-capture "after-creating-namespaces"
-
-# Apply all pod deployments
-kubectl apply -f podDeployments/
-capture "after-creating-deployments"
-
-#Now apply labels to the deployment
-for ns in ${namespaces[@]}; do
-    echo "Applying Labels to $ns"
-    for (( i=$start; i<=$numofLoopForLabels; i++ ))
-    do               
-        labelAllPodsInNs $ns
+if [[ $createDeployments == "true" ]]; then
+    kubectl create ns test1replace
+    #delete old pod deployments
+    rm podDeployments/deployment*.yml
+    for i in ${namespaces[@]}; do
+        kubectl create ns $i
+        sed "s/test1replace/$i/g" podDeployments/nginx_deployment.yaml > podDeployments/deployment-$i.yml
     done
-done
-capture "after-labeling-deployments"
+    capture "after-creating-namespaces"
+
+    # Apply all pod deployments
+    kubectl apply -f podDeployments/
+    capture "after-creating-deployments"
+
+    #Now apply labels to the deployment
+    for ns in ${namespaces[@]}; do
+        echo "Applying Labels to $ns"
+        for (( i=$start; i<=$numofLoopForLabels; i++ ))
+        do
+            labelAllPodsInNs $ns
+        done
+    done
+    capture "after-labeling-deployments"
+fi
 
 for ns in ${namespaces[@]}; do
     kubectl apply -n $ns -f networkPolicies/ 
@@ -427,20 +430,24 @@ capture "after-creating-netpols"
 
 case $deleteAction in 
     labels-randomly)
-        echo "Deleting Random Labels"
-        for i in $(seq 1 $numDeleteLoops);do
-            echo "Starting delete loop #$i"
-            for ns in ${namespaces[@]}; do
-                # TODO actually delete the labels
-                #Re-add labels to new pods
-                labelAllPodsInNs $ns
-                conditionalSleep 2
+        if [[ $createDeployments == "true" ]]; then
+            echo "Deleting Random Labels"
+            for i in $(seq 1 $numDeleteLoops);do
+                echo "Starting delete loop #$i"
+                for ns in ${namespaces[@]}; do
+                    # TODO actually delete the labels
+                    #Re-add labels to new pods
+                    labelAllPodsInNs $ns
+                    conditionalSleep 2
+                done
+                if [[ $i != $numDeleteLoops ]]; then
+                    conditionalSleep 5
+                fi
             done
-            if [[ $i != $numDeleteLoops ]]; then
-                conditionalSleep 5
-            fi
-        done
-        capture "after-deleting-labels"
+            capture "after-deleting-labels"
+        else
+            echo "can't delete pods, didn't create deployments based on config"
+        fi
         ;;
     netpols-randomly)
         echo "Deleting Random Policies"
@@ -458,19 +465,23 @@ case $deleteAction in
         capture "after-deleting-netpols"
         ;;
     pods-randomly)
-        echo "Deleting Random Pods"
-        for i in $(seq 1 $numDeleteLoops);do
-            echo "Starting delete loop #$i"
-            for ns in ${namespaces[@]}; do
-                echo "Deleting random pods in namespace $ns"
-                deleteRandomPodsNs $ns
-                conditionalSleep 2
+        if [[ $createDeployments == "true" ]]; then
+            echo "Deleting Random Pods"
+            for i in $(seq 1 $numDeleteLoops);do
+                echo "Starting delete loop #$i"
+                for ns in ${namespaces[@]}; do
+                    echo "Deleting random pods in namespace $ns"
+                    deleteRandomPodsNs $ns
+                    conditionalSleep 2
+                done
+                if [[ $i != $numDeleteLoops ]]; then
+                    conditionalSleep 5
+                fi
             done
-            if [[ $i != $numDeleteLoops ]]; then
-                conditionalSleep 5
-            fi
-        done
-        capture "after-deleting-pods"
+            capture "after-deleting-pods"
+        else
+            echo "can't delete pods, didn't create deployments based on config"
+        fi
         ;;
     all-after)
         cleanUpAllResources
