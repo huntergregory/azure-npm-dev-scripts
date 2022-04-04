@@ -13,6 +13,7 @@ data:
         "EnablePrometheusMetrics": true,
         "EnablePprof": true,
         "EnableHTTPDebugAPI": true,
-        "EnableV2NPM": true
+        "EnableV2NPM": true,
+        "PlaceAzureChainFirst": true
       }
     }
