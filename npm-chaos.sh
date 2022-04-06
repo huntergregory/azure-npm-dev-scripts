@@ -67,7 +67,7 @@ createDeployments=true
 createNetPols=true
 skipNPMInstall=false
 experimentName="experiment"
-captureMode="none"
+captureMode="no-capture"
 shouldSaveLog=false
 shouldSleep=true
 deleteAction="all-after"
@@ -133,13 +133,18 @@ if [[ $skipNPMInstall == false ]]; then
         exit 1
     fi
 fi
-if [[ $captureMode != 'none' && $captureMode != 'cpu' && $captureMode != 'memory' && $captureMode != 'trace' ]]; then
+if [[ $captureMode != 'no-capture' && $captureMode != 'cpu' && $captureMode != 'memory' && $captureMode != 'trace' ]]; then
     echo "Error: you must specify a valid capture mode with -c."
     exit 1
 fi
-
 profilePath="npm-profiles-with-pprof/$profile.yaml"
-test -f $profilePath || echo "Error: profile $profilePath does not exist."
+if [[ $skipNPMInstall == false ]]; then
+    test -f $profilePath
+    if [[ $? != 0 ]]; then
+        echo "Error: profile $profilePath does not exist."
+        exit 1
+    fi
+fi
 
 podResultsFolderName="/npm-chaos-results/$experimentName/$captureMode"
 localResultsFolderName="../npm-chaos-results/$experimentName/$captureMode"
@@ -154,11 +159,9 @@ echo "Working directory after cd:"
 pwd
 
 ## display and write config to file
-set -x
-set -e
+set -ex
 mkdir -p $localResultsFolderName
-set +e
-set +x
+set +ex
 cat > $localResultsFolderName/chaos-parameters.txt << EOF
 Running NPM Chaos with the following config:
 skip install/restart: $skipNPMInstall
@@ -197,7 +200,6 @@ generateNs () {
         sufix=test
         namespace="web-$sufix-$i"
         namespaces=("${namespaces[@]}" $namespace)
-        kubectl create ns $namespace
     done
 }
 
@@ -269,12 +271,14 @@ if [[ "$deleteAction" = "netpols-and-exit" ]]; then
     exit 0
 fi
 
+generateNs
+
 if [[ "$deleteAction" = "ns-and-exit" ]]; then
     cleanUpAllResources
     exit 0
 fi
 
-if [[ $cleanupBeforeStarting == "true" ]]; then
+if [[ $cleanupBeforeStarting == "true" && ($createDeployments == true || $createNetPols == true) ]]; then
     cleanUpAllResources
 fi
 
@@ -283,7 +287,7 @@ if [[ $skipNPMInstall == true ]]; then
     echo "Skipping NPM installation/restart"
 else
     echo "Deploying NPM"
-    set -e
+    set -ex
     echo "(re)deploying NPM with profile $profile and image $image"
     kubectl apply -f https://raw.githubusercontent.com/Azure/azure-container-networking/master/npm/azure-npm.yaml
     # swap azure-npm image with desired one
@@ -291,7 +295,7 @@ else
     # swap NPM profile with desired one
     kubectl apply -f $profilePath
     kubectl rollout restart ds azure-npm -n kube-system
-    set +e
+    set +ex
     echo "sleeping to allow NPM pods to come back up after boot up"
     sleep 180
     kubectl describe daemonset azure-npm -n kube-system
@@ -333,7 +337,7 @@ saveArtifactsAndExit () {
         sleep 70 # capture takes 60 seconds
         echo "final capture has finished"
     fi
-    if [[ $captureMode != "none" ]]; then
+    if [[ $captureMode != "no-capture" ]]; then
         echo "Saving pprof results"
         kubectl cp -n kube-system $npmPod:$podResultsFolderName/ $localResultsFolderName/
     fi
@@ -348,18 +352,19 @@ execPod () {
     echo "END COMMAND STDOUT"
 }
 
-if [[ $captureMode != "none" ]]; then
+if [[ $captureMode != "no-capture" ]]; then
     topFile=$localResultsFolderName/kubectl-top-captures.txt
     echo "All Kubectl Top Captures" > $topFile
 fi
 capture () {
     # first arg is the name for the pprof file
-
-    if [[ $captureArea != "all" && $captureArea != $1 ]]; then
-        echo "skipping $1 capture" | tee -a $topFile
-        return
-    else
-        echo "capturing $1" | tee -a $topFile
+    if [[ $captureMode != "no-capture" ]]; then
+        if [[ $captureArea != "all" && $captureArea != $1 ]]; then
+            echo "skipping $1 capture" | tee -a $topFile
+            return
+        else
+            echo "capturing $1" | tee -a $topFile
+        fi
     fi
 
     resultsFileName="$podResultsFolderName/$1"
@@ -372,7 +377,7 @@ capture () {
         # collect prometheus metrics
         echo "NODE METRICS: $1" | tee -a $topFile
         execPod "curl localhost:10091/node-metrics" | tee -a $topFile
-        
+
         echo "getting pprof for cpu: $1"
         commandString="curl localhost:10091/debug/pprof/profile -o $resultsFileName.out"
         if [[ $runCPUCaptureInBackground == "false" ]]; then
@@ -402,12 +407,12 @@ capture () {
 
             echo "getting pprof for heap: $1 - $minutes minutes later"
             execPod "curl localhost:10091/debug/pprof/heap -o $resultsFileName-$minutes-minutes.out"
+
+            echo "NODE METRICS: $1 - $minutes minutes later" | tee -a $topFile
+            execPod "curl localhost:10091/node-metrics" | tee -a $topFile
+
             if [[ $i != $memCaptureTimes ]]; then
                 sleep 60
-            fi
-            if [[ $i == $memCaptureTimes || $(( $i % 4 )) == 0 ]]; then
-                echo "NODE METRICS: $1 - $minutes minutes later" | tee -a $topFile
-                execPod "curl localhost:10091/node-metrics" | tee -a $topFile
             fi
         done
     fi
@@ -427,7 +432,7 @@ capture () {
     fi
 }
 
-if [[ $captureMode != "none" ]]; then
+if [[ $captureMode != "no-capture" ]]; then
     echo "setting up npm pod environement for capturing"
     execPod "rm -rf $podResultsFolderName && mkdir -p $podResultsFolderName && apt-get install curl --yes" # apt update && 
 fi
@@ -439,9 +444,11 @@ fi
 capture "initial"
 
 if [[ $createDeployments == "true" ]]; then
-    echo "Generating $numOfNs namespaces"
-    generateNs
-    echo "Done Generating NS"
+    echo "Creating $numOfNs namespaces"
+    for i in ${namespaces[@]}; do
+        kubectl create ns $i
+    done
+    echo "Done creating NS"
     echo ${namespaces[@]}
 
     kubectl create ns test1replace
