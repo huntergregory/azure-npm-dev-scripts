@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-dep1
+  namespace: test-ns1
+  labels:
+    app: label1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: label1
+  template:
+    metadata:
+      labels:
+        app: label1
+    spec:
+      containers:
+        - name: pausebox
+          image: k8s.gcr.io/pause:3.2
+          imagePullPolicy: IfNotPresent
