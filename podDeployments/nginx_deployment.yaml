@@ -1,30 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-deployment
+  name: busybox-deployment
   namespace: test1replace
   labels:
-    app: nginx
+    app: busybox
 spec:
-  replicas: 15
+  replicas: 1000
   selector:
     matchLabels:
-      app: nginx
+      app: busybox
   template:
     metadata:
       labels:
-        app: nginx
+        app: busybox
     spec:
       containers:
-        - name: nginx
-          image: nginx:1.14.2
-          ports:
-            - containerPort: 80
-            - containerPort: 81
-            - containerPort: 82
-            - containerPort: 83
-            - containerPort: 180
-            - containerPort: 280
-            - containerPort: 380
-            - containerPort: 480
-            - containerPort: 580
+        - name: busybox
+          image: busybox:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - sleep
+            - "36000"

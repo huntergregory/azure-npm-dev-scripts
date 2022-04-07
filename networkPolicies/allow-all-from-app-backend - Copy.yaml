@@ -1,0 +1,12 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cpyallow-all-from-app-backend
+spec:
+  policyTypes:
+    - Egress
+  podSelector:
+    matchLabels:
+      app: "backend"
+  egress:
+    - {}

@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cpyallow-multiple-labels-to-multiple-labels
+spec:
+  policyTypes:
+    - Ingress
+  podSelector:
+    matchLabels:
+      app: k8s
+      team: aks
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              program: cni
+              team: acn
+        - podSelector:
+            matchLabels:
+              binary: cns
+              group: container

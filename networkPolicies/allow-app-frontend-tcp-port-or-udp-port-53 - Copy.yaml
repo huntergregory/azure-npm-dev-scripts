@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cpyallow-app-frontend-tcp-port-or-udp-port-53
+spec:
+  policyTypes:
+    - Egress
+  podSelector:
+    matchLabels:
+      app: frontend
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53
+    - to:
+        - namespaceSelector: {}

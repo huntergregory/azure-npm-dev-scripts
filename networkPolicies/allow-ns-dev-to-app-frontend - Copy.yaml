@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cpyallow-ns-dev-to-app-frontend
+spec:
+  policyTypes:
+    - Ingress
+  podSelector:
+    matchLabels:
+      app: "frontend"
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              namespace: "dev"
+            matchExpressions:
+              - key: namespace
+                operator: NotIn
+                values:
+                  - test0
+                  - test1
