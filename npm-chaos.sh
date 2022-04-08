@@ -1,12 +1,12 @@
 #!/bin/bash
 ## CONSTANTS
 start=1
-numOfNs=50 # 15 replicas per namespace
-numofLabels=100
+numOfNs=600 # 15 replicas per namespace
+numofLabels=50
 numofLoopForLabels=1
 numDeleteLoops=2
 
-cleanupBeforeStarting=true
+cleanupBeforeStarting=false
 podFileName=pods_in_ns.txt
 policyFileName=netpols_in_ns.txt
 logFileName=npm.log
@@ -201,6 +201,14 @@ generateNs () {
         namespace="web-$sufix-$i"
         namespaces=("${namespaces[@]}" $namespace)
     done
+    if [[ $createNetPols == true || $createDeployments == true ]]; then
+        echo "Creating $numOfNs namespaces"
+        for i in ${namespaces[@]}; do
+            kubectl create ns $i
+        done
+        echo "Done creating NS"
+        echo ${namespaces[@]}
+    fi
 }
 
 generateLabels () {
@@ -318,8 +326,10 @@ echo "will obersve node $nodeName"
 
 npmPod=`eval kubectl get pod -A | grep -o -m 1 -P "azure-npm-[0-9a-z]{5}"`
 if [[ -z "$npmPod" ]]; then
-    echo "Error: NPM pod not found"
-    exit 1
+    if [[ $skipNPMInstall == false || $shouldSaveLog == true ]]; then
+        echo "Could not find NPM pod"
+        exit 1
+    fi
 fi
 echo "will observe NPM pod: $npmPod"
 # print out image version
@@ -444,13 +454,7 @@ fi
 capture "initial"
 
 if [[ $createDeployments == "true" ]]; then
-    echo "Creating $numOfNs namespaces"
-    for i in ${namespaces[@]}; do
-        kubectl create ns $i
-    done
-    echo "Done creating NS"
-    echo ${namespaces[@]}
-
+    echo "creating extra namespace 'test1replace'"
     kubectl create ns test1replace
     #delete old pod deployments
     rm podDeployments/deployment*.yml
