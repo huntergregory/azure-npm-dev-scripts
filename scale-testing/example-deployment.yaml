@@ -1,8 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: test-nameReplace
-  namespace: test-nsReplace
+  name: nameReplace
+  namespace: nsReplace
   labels:
     app: labelReplace
 spec:

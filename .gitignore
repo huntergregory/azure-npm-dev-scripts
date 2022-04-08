@@ -1,2 +1,4 @@
 podDeployments/
 debug/
+scale-testing/deployments/
+scale-testing/netpols/
