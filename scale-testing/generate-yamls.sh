@@ -21,13 +21,12 @@ for (( i=1; i<=$numDeployments; i++ )); do
         toFile=netpols/netpol-$i-$j.yaml
         sed "s/nameReplace/test-netpol-$i-$j/g" example-netpol.yaml > $toFile
         sed -i "s/nsReplace/test-ns-$i/g" $toFile
-        z=$(( i + (j-1)*3 ))
+        sed -i "s/labelReplace1/label-$i/g" $toFile
+        z=$(( i + (j-1)*2 ))
         plus1=$(( z % numDeployments + 1))
-        sed -i "s/labelReplace1/label-$plus1/g" $toFile
+        sed -i "s/labelReplace2/label-$plus1/g" $toFile
         plus2=$(( (z+1) % numDeployments + 1))
-        sed -i "s/labelReplace2/label-$plus2/g" $toFile
-        plus3=$(( (z+2) % numDeployments + 1))
-        sed -i "s/labelReplace3/label-$plus3/g" $toFile
+        sed -i "s/labelReplace3/label-$plus2/g" $toFile
     done
 done
 
