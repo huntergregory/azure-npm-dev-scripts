@@ -1,6 +1,6 @@
 #!/bin/bash
-numDeployments=10
-numNetpolsPerDeployment=2
+numDeployments=50
+numNetpolsPerDeployment=4
 
 echo "creating $numDeployments deployments and $numNetpolsPerDeployment netpols per deployment"
 
