@@ -2,17 +2,14 @@
 numPodsToDelete=10000
 
 set -e
-numNamespaces=`kubectl get ns | grep test-ns- | wc -l`
-numPodsToDeletePerNamespace=`expr $numPodsToDelete / $numNamespaces`
 desiredNumPods=`kubectl get pod -A | grep test-ns- | grep Running | wc -l`
+numDeployments=`ls deployments/ | wc -l`
+numLabelsToDelete=`expr $numPodsToDelete * $numDeployments / $desiredNumPods`
 
 startTime=`date -u`
-echo "Randomly deleting $numPodsToDelete pods across $numNamespaces namespaces. Will wait until all $desiredNumPods pods are running again"
-for (( i=1; i<=$numNamespaces; i++ )); do
-    pods=`kubectl get pod -n test-ns-$i | grep Running | shuf -n $numPodsToDeletePerNamespace | awk '{print $1}'`
-    for pod in $pods; do
-        kubectl -n test-ns-$i delete pod $pod --grace-period=0 --force
-    done
+echo "Randomly deleting about $numPodsToDelete pods by deleting $numLabelsToDelete labels. Will wait until all $desiredNumPods pods are running again"
+for (( i=1; i<=$numLabelsToDelete; i++ )); do
+    kubectl delete pod -A -l app=label-$i --grace-period=1
 done
 
 ## the rest is copied from create-deployments.sh
