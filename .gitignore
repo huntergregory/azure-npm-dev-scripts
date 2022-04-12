@@ -2,3 +2,6 @@ podDeployments/
 debug/
 scale-testing/deployments/
 scale-testing/netpols/
+scale-testing/latencies/
+scale-testing/*.txt
+scale-testing/logs/
