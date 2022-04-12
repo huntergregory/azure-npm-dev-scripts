@@ -1,10 +1,10 @@
 #!/bin/bash
-numPodsToDelete=10000
+numPodsToDelete=30
 
 set -e
 desiredNumPods=`kubectl get pod -A | grep test-ns- | grep Running | wc -l`
 numDeployments=`ls deployments/ | wc -l`
-numLabelsToDelete=`expr $numPodsToDelete * $numDeployments / $desiredNumPods`
+numLabelsToDelete=`expr $numPodsToDelete \* $numDeployments / $desiredNumPods`
 labelfilter="label-1"
 
 startTime=`date -u`
@@ -13,7 +13,7 @@ for (( i=2; i<=$numLabelsToDelete; i++ )); do
     labelfilter="${labelfilter}, label-$i"
 done
 
-kubectl delete pod -A -l 'app in (labelfilter)' --grace-period=1
+kubectl delete pod -A -l "app in ($labelfilter)" --grace-period=1
 
 ## the rest is copied from create-deployments.sh
 echo
