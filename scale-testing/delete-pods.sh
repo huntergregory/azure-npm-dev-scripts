@@ -1,5 +1,5 @@
 #!/bin/bash
-numPodsToDelete=30
+numPodsToDelete=10000
 
 set -e
 desiredNumPods=`kubectl get pod -A | grep test-ns- | grep Running | wc -l`
@@ -9,11 +9,12 @@ labelfilter="label-1"
 
 startTime=`date -u`
 echo "Randomly deleting about $numPodsToDelete pods by deleting $numLabelsToDelete labels. Will wait until all $desiredNumPods pods are running again"
+echo "start time: $startTime"
 for (( i=2; i<=$numLabelsToDelete; i++ )); do
     labelfilter="${labelfilter}, label-$i"
 done
 
-kubectl delete pod -A -l "app in ($labelfilter)" --grace-period=1
+kubectl delete pod -A -l "app in ($labelfilter)" --grace-period=1 --wait=false
 
 ## the rest is copied from create-deployments.sh
 echo
