@@ -17,6 +17,11 @@ while true; do
     for line in $lines; do
         echo "$currentTime,$line" >> cpu-and-mem-node-results.csv
     done
+
+    echo `date -u` >> cpu-and-mem-running-pods.out
+    kubectl get pod -n kube-system | grep npm >> cpu-and-mem-running-pods.out
+    echo " " >> cpu-and-mem-running-pods.out
+
     echo "sleeping $sleepSeconds seconds"
     sleep $sleepSeconds
 done
