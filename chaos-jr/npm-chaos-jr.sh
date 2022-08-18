@@ -1,14 +1,18 @@
 # USE -d to skip running and get num ACLs, pods, IPSets, members
-# added ACLs: 4*policies
+# USE -c to get current ACLs, etc.
+INSTALL_CURL=false
+windowsNodeName=akswin22
+
+# added ACLs: 6*policies
 # added IPSets: 4 + 2*uni*shared + 2*shared
 #   [ns-chaos-jr,nsmeta:chaos-jr,hash:xxxx,app:busybox + labels]
 # added members: 3 + (5+2*uni+2*shared)*pods
 #   [all-ns,nsmeta,nsmeta:chaos-jr + 2*uni*pods + 2*shared*pods + (app,app:busybox,hash,hash:xxxx,ns-chaos-jr) * pods]
-numDeployments=5
-numReplicas=4
+numDeployments=2 # 5
+numReplicas=2
 numUniqueLabelsPerPod=1 # must be >= 1
-numSharedLabelsPerPod=18 # must be >= 1
-numPolicies=$(( (10000 - 13) / 4 + 1))
+numSharedLabelsPerPod=3 #18 # must be >= 3
+numPolicies=2 # $(( (10000 - 13) / 6 + 1))
 
 ## SETUP
 if [[ $1 == "-d" ]]; then
@@ -17,20 +21,27 @@ if [[ $1 == "-d" ]]; then
     originalACLs=13
     originalIPSets=47
     originalMembers=96
-elif [[ $1 == "-f" ]]; then
-    echo only looking at FINAL stuff
+    originalWindowsPodCount=4
+elif [[ $1 == "-c" ]]; then
+    echo only looking at COUNTS
     npmPod=`kubectl get pod -n kube-system | grep Running | grep -oP "azure-npm-[a-z0-9]+" -m 1`
     if [[ -z $npmPod ]]; then
         echo "No Linux NPM pod running. Exiting."
         exit 1
     fi
+    if [[ $INSTALL_CURL == true ]]; then
+        kubectl exec -it -n kube-system $npmPod -- apt-get install curl -y
+    fi
+    
     finalACLs=`kubectl exec -it -n kube-system $npmPod -- curl localhost:10091/cluster-metrics | grep -P "npm_num_iptables_rules \\d+" | grep -oP "\\d+"`
     finalIPSets=`kubectl exec -it -n kube-system $npmPod -- curl localhost:10091/cluster-metrics | grep -P "npm_num_ipsets \\d+" | grep -oP "\\d+"`
     finalMembers=`kubectl exec -it -n kube-system $npmPod -- curl localhost:10091/cluster-metrics | grep -P "npm_num_ipset_entries \\d+" | grep -oP "\\d+"`
+    finalWindowsPodCount=`kubectl get pod -owide -A | grep $windowsNodeName | wc -l`
 
-    echo final ACLs: $finalACLs
-    echo final IPSets: $finalIPSets
-    echo final Members: $finalMembers
+    echo current ACLs: $finalACLs
+    echo current IPSets: $finalIPSets
+    echo current Members: $finalMembers
+    echo current Windows pod count: $finalWindowsPodCount
     exit 0
 else
     # linux npm pod
@@ -49,26 +60,30 @@ else
     fi
 
     kubectl delete ns chaos-jr && echo "sleeping 5 minutes to let NPM ipset count reset" && sleep 5m
-
-    # kubectl exec -it -n kube-system $npmPod -- apt-get install curl -y
+    
+    if [[ $INSTALL_CURL == true ]]; then
+        kubectl exec -it -n kube-system $npmPod -- apt-get install curl -y
+    fi
 
     set -e
     echo "fail if curl is uninstalled"
     originalACLs=`kubectl exec -it -n kube-system $npmPod -- curl localhost:10091/cluster-metrics | grep -P "npm_num_iptables_rules \\d+" | grep -oP "\\d+"`
     originalIPSets=`kubectl exec -it -n kube-system $npmPod -- curl localhost:10091/cluster-metrics | grep -P "npm_num_ipsets \\d+" | grep -oP "\\d+"`
     originalMembers=`kubectl exec -it -n kube-system $npmPod -- curl localhost:10091/cluster-metrics | grep -P "npm_num_ipset_entries \\d+" | grep -oP "\\d+"`
+    originalWindowsPodCount=`kubectl get pod -owide -A | grep $windowsNodeName | wc -l`
     set +e
 fi
 
 set +x
 numPods=$(( $numDeployments * $numReplicas ))
-toAddACLs=$(( 4 * $numPolicies ))
+toAddACLs=$(( 6 * $numPolicies ))
 toAddIPSets=$(( 4 + 2 * $numPods * $numUniqueLabelsPerPod + 2 * $numSharedLabelsPerPod))
 toAddMembers=$(( 3 + (5 + 2*$numUniqueLabelsPerPod + 2*$numSharedLabelsPerPod) * $numPods ))
 
 totalACLs=$(( $originalACLs + $toAddACLs ))
 totalIPSets=$(( $originalIPSets + $toAddIPSets ))
 totalMembers=$(( $originalMembers + $toAddMembers ))
+totalWindowsPodCount=$(( $originalWindowsPodCount + $numPods ))
 
 currDate=`date`
 echo Runing chaos-jr with these constants at $currDate:
@@ -82,16 +97,17 @@ echo
 echo original ACLs: $originalACLs
 echo original IPSets: $originalIPSets
 echo original Members: $originalMembers
+echo original windows pod count: $originalWindowsPodCount
 echo 
 echo toAdd ACLs: $toAddACLs
 echo toAdd IPSets: $toAddIPSets
 echo toAdd Members: $toAddMembers
+echo toAdd pods: $numPods
 echo
 echo total ACLs: $totalACLs
 echo total IPSets: $totalIPSets
 echo total Members: $totalMembers
-echo
-echo numPods: $numPods
+echo total windows pod count: $totalWindowsPodCount
 echo
 
 if [[ $DEBUG == true ]]; then
@@ -114,26 +130,33 @@ done
 for i in $(seq 1 $numPolicies); do
     sed "s/TEMP_NAME/policy-$i/g" policy-template.yaml > policies/policy-$i.yaml
     valNum=$i
-    if [[ $i -ge $numSharedLabelsPerPod ]]; then
-        valNum=$(( $numSharedLabelsPerPod - 1 ))
+    if [[ $i -ge $(( numSharedLabelsPerPod - 2 )) ]]; then
+        valNum=$(( $numSharedLabelsPerPod - 2 ))
     fi
-    sed -i "s/TEMP_LABEL_NAME/lab-$valNum/g" policies/policy-$i.yaml
-    sed -i "s/TEMP_LABEL_VAL/val-$valNum/g" policies/policy-$i.yaml
+    sed -i "s/TEMP_LABEL_NAME/shared-lab-$valNum/g" policies/policy-$i.yaml
+    sed -i "s/TEMP_LABEL_VAL/shared-val-$valNum/g" policies/policy-$i.yaml
+
+    ingressNum=$(( $valNum + 1 ))
+    sed -i "s/TEMP_INGRESS_NAME/shared-lab-$ingressNum/g" policies/policy-$i.yaml
+    sed -i "s/TEMP_INGRESS_VAL/shared-val-$ingressNum/g" policies/policy-$i.yaml
+
+    egressNum=$(( $valNum + 2 ))
+    sed -i "s/TEMP_EGRESS_NAME/shared-lab-$egressNum/g" policies/policy-$i.yaml
+    sed -i "s/TEMP_EGRESS_VAL/shared-val-$egressNum/g" policies/policy-$i.yaml
 done
 
 ## RUN
 echo "STARTING RUN"
 echo
 set -x
-kubectl delete ns chaos-jr --ignore-not-found
 kubectl create ns chaos-jr
 
 kubectl apply -f pods/
 
 set +x
-sharedLabels="lab-1=val-1"
+sharedLabels="shared-lab-1=shared-val-1"
 for i in $(seq 2 $numSharedLabelsPerPod); do
-    sharedLabels="$sharedLabels lab-$i=val-$i"
+    sharedLabels="$sharedLabels shared-lab-$i=shared-val-$i"
 done
 set -x
 kubectl label pods -n chaos-jr --all $sharedLabels
@@ -166,17 +189,11 @@ sleep 10s
 finalACLs=`kubectl exec -it -n kube-system $npmPod -- curl localhost:10091/cluster-metrics | grep -P "npm_num_iptables_rules \\d+" | grep -oP "\\d+"`
 finalIPSets=`kubectl exec -it -n kube-system $npmPod -- curl localhost:10091/cluster-metrics | grep -P "npm_num_ipsets \\d+" | grep -oP "\\d+"`
 finalMembers=`kubectl exec -it -n kube-system $npmPod -- curl localhost:10091/cluster-metrics | grep -P "npm_num_ipset_entries \\d+" | grep -oP "\\d+"`
+finalWindowsPodCount=`kubectl get pod -owide -A | grep $windowsNodeName | wc -l`
 set +x
 
 echo final ACLs: $finalACLs. estimated $totalACLs
 echo final IPSets: $finalIPSets. estimated $totalIPSets
 echo final Members: $finalMembers. estimated $totalMembers
-echo "to get up-to-date results later, run this script with the -f flag"
-
-## OLD CODE
-# resultsFile=$1
-# if [[ -z $resultsFile ]]; then
-#     echo "No results file specified"
-#     exit 1
-# fi
-# test -f $resultsFile && echo "Results file $resultsFile already exists. Exiting." && exit 1
+echo final windows pod count: $finalWindowsPodCount. estimated $totalWindowsPodCount
+echo "to get up-to-date counts later, run this script with the -c flag"

@@ -7,6 +7,16 @@ spec:
   podSelector:
     matchLabels:
       TEMP_LABEL_NAME: TEMP_LABEL_VAL
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          TEMP_INGRESS_NAME: TEMP_INGRESS_VAL
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          TEMP_EGRESS_NAME: TEMP_EGRESS_VAL
   policyTypes:
   - Ingress
   - Egress

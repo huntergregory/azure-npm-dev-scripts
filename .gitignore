@@ -5,3 +5,8 @@ scale-testing/netpols/
 scale-testing/latencies/
 scale-testing/*.txt
 scale-testing/logs/
+*.log
+*.out
+chaos-jr/pods/
+chaos-jr/policies/
+chaos-jr/*.txt
