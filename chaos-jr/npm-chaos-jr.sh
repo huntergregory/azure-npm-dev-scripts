@@ -1,14 +1,14 @@
 # USE -d to skip running and get num ACLs, pods, IPSets, members
-# added ACLs: 2*policies
+# added ACLs: 4*policies
 # added IPSets: 4 + 2*uni*shared + 2*shared
 #   [ns-chaos-jr,nsmeta:chaos-jr,hash:xxxx,app:busybox + labels]
 # added members: 3 + (5+2*uni+2*shared)*pods
 #   [all-ns,nsmeta,nsmeta:chaos-jr + 2*uni*pods + 2*shared*pods + (app,app:busybox,hash,hash:xxxx,ns-chaos-jr) * pods]
-numDeployments=2
-numReplicas=2
-numUniqueLabelsPerPod=2 # must be >= 1
-numSharedLabelsPerPod=2 # must be >= 1
-numPolicies=2
+numDeployments=5
+numReplicas=4
+numUniqueLabelsPerPod=1 # must be >= 1
+numSharedLabelsPerPod=18 # must be >= 1
+numPolicies=$(( (10000 - 13) / 4 + 1))
 
 ## SETUP
 if [[ $1 == "-d" ]]; then
@@ -62,7 +62,7 @@ fi
 
 set +x
 numPods=$(( $numDeployments * $numReplicas ))
-toAddACLs=$(( 2 * $numPolicies ))
+toAddACLs=$(( 4 * $numPolicies ))
 toAddIPSets=$(( 4 + 2 * $numPods * $numUniqueLabelsPerPod + 2 * $numSharedLabelsPerPod))
 toAddMembers=$(( 3 + (5 + 2*$numUniqueLabelsPerPod + 2*$numSharedLabelsPerPod) * $numPods ))
 
@@ -77,6 +77,7 @@ echo numDeployments=$numDeployments
 echo numReplicas=$numReplicas
 echo numUniqueLabelsPerPod=$numUniqueLabelsPerPod
 echo numSharedLabelsPerPod=$numSharedLabelsPerPod
+echo numPolicies: $numPolicies
 echo
 echo original ACLs: $originalACLs
 echo original IPSets: $originalIPSets
@@ -90,7 +91,6 @@ echo total ACLs: $totalACLs
 echo total IPSets: $totalIPSets
 echo total Members: $totalMembers
 echo
-echo numPolicies: $numPolicies
 echo numPods: $numPods
 echo
 

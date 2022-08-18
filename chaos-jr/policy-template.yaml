@@ -9,3 +9,4 @@ spec:
       TEMP_LABEL_NAME: TEMP_LABEL_VAL
   policyTypes:
   - Ingress
+  - Egress
