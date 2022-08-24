@@ -1,7 +1,7 @@
 #!/bin/bash
 ## CONSTANTS
 start=1
-numOfNs=600 # 15 replicas per namespace
+numOfNs=25 # 15 replicas per namespace
 numofLabels=50
 numofLoopForLabels=1
 numDeleteLoops=2
@@ -203,9 +203,11 @@ generateNs () {
     done
     if [[ $createNetPols == true || $createDeployments == true ]]; then
         echo "Creating $numOfNs namespaces"
-        for i in ${namespaces[@]}; do
-            kubectl create ns $i
-        done
+        if [[ $deleteAction != "ns-and-exit" ]]; then
+            for i in ${namespaces[@]}; do
+                kubectl create ns $i
+            done
+        fi
         echo "Done creating NS"
         echo ${namespaces[@]}
     fi
