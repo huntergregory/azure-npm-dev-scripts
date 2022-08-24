@@ -1,6 +1,6 @@
 # USE -d to skip running and get num ACLs, pods, IPSets, members
 # USE -c to get current ACLs, etc.
-INSTALL_CURL=false
+INSTALL_CURL=true
 windowsNodeName=akswin22
 
 # added ACLs: 6*policies
@@ -8,11 +8,11 @@ windowsNodeName=akswin22
 #   [ns-chaos-jr,nsmeta:chaos-jr,hash:xxxx,app:busybox + labels]
 # added members: 3 + (5+2*uni+2*shared)*pods
 #   [all-ns,nsmeta,nsmeta:chaos-jr + 2*uni*pods + 2*shared*pods + (app,app:busybox,hash,hash:xxxx,ns-chaos-jr) * pods]
-numDeployments=2 # 5
-numReplicas=2
+numDeployments=120
+numReplicas=5
 numUniqueLabelsPerPod=1 # must be >= 1
-numSharedLabelsPerPod=3 #18 # must be >= 3
-numPolicies=2 # $(( (10000 - 13) / 6 + 1))
+numSharedLabelsPerPod=50 # must be >= 3
+numPolicies=1000 # $(( (10000 - 13) / 6 + 1))
 
 ## SETUP
 if [[ $1 == "-d" ]]; then
@@ -24,7 +24,7 @@ if [[ $1 == "-d" ]]; then
     originalWindowsPodCount=4
 elif [[ $1 == "-c" ]]; then
     echo only looking at COUNTS
-    npmPod=`kubectl get pod -n kube-system | grep Running | grep -oP "azure-npm-[a-z0-9]+" -m 1`
+    npmPod=`kubectl get pod -n kube-system | grep Running | grep -v "azure-npm-win" | grep -oP "azure-npm-[a-z0-9]+" -m 1`
     if [[ -z $npmPod ]]; then
         echo "No Linux NPM pod running. Exiting."
         exit 1
@@ -46,7 +46,7 @@ elif [[ $1 == "-c" ]]; then
 else
     # linux npm pod
     set -x
-    npmPod=`kubectl get pod -n kube-system | grep Running | grep -oP "azure-npm-[a-z0-9]+" -m 1`
+    npmPod=`kubectl get pod -n kube-system | grep Running | grep -v "azure-npm-win" | grep -oP "azure-npm-[a-z0-9]+" -m 1`
     if [[ -z $npmPod ]]; then
         echo "No Linux NPM pod running. Exiting."
         exit 1
@@ -59,7 +59,7 @@ else
         exit 1
     fi
 
-    kubectl delete ns chaos-jr && echo "sleeping 5 minutes to let NPM ipset count reset" && sleep 5m
+    kubectl delete ns chaos-jr && echo "sleeping 5 minutes to let NPM count reset" && sleep 5m
     
     if [[ $INSTALL_CURL == true ]]; then
         kubectl exec -it -n kube-system $npmPod -- apt-get install curl -y
@@ -146,7 +146,7 @@ for i in $(seq 1 $numPolicies); do
 done
 
 ## RUN
-echo "STARTING RUN"
+echo "STARTING RUN at $(date)"
 echo
 set -x
 kubectl create ns chaos-jr
@@ -181,7 +181,7 @@ set +x
 
 ## FINAL CHECK
 echo
-echo FINISHED
+echo "FINISHED at $(date)"
 echo
 echo verify final numbers
 set -x
