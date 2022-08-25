@@ -5,8 +5,9 @@ fi
 
 set -x
 npmPods=`kubectl get pod -n kube-system | grep npm | awk '{print $1}'`
+mkdir -p logs/$1/
 for pod in $npmPods; do
-    logFilePath="$1/$pod.log"
+    logFilePath="logs/$1/$pod.log"
     echo "Saving npm logs to $logFilePath in a background process"
     kubectl logs -n kube-system -f $pod --kubeconfig=$1 > $logFilePath &
 done
