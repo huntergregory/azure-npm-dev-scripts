@@ -8,10 +8,10 @@ windowsNodeName=akswin22
 #   [ns-chaos-jr,nsmeta:chaos-jr,hash:xxxx,app:busybox + labels]
 # added members: 3 + (5+2*uni+2*shared)*pods
 #   [all-ns,nsmeta,nsmeta:chaos-jr + 2*uni*pods + 2*shared*pods + (app,app:busybox,hash,hash:xxxx,ns-chaos-jr) * pods]
-numDeployments=120
+numDeployments=120 # adding 12*3 from 120 to get an equal amount on 3 linux nodes. 3.5k more members and 340 more ipsets
 numReplicas=5
 numUniqueLabelsPerPod=1 # must be >= 1
-numSharedLabelsPerPod=50 # must be >= 3
+numSharedLabelsPerPod=40 # must be >= 3
 numPolicies=1000 # $(( (10000 - 13) / 6 + 1))
 
 ## SETUP

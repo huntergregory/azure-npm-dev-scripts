@@ -15,8 +15,8 @@ spec:
       labels:
         app: busybox
     spec:
-      nodeSelector:
-        kubernetes.io/os: "windows"
+      # nodeSelector:
+      #   kubernetes.io/os: "windows"
       containers:
       - command:
         - /agnhost
