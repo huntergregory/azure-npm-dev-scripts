@@ -9,18 +9,23 @@ if [[ $2 == "" ]]; then
 fi
 
 baseDir=prometheus-results-$1/$2
-# test -d prometheus-results-$1/$2 && echo "dir already exists" && exit 1
+test -d prometheus-results-$1/$2 && echo "dir already exists" && exit 1
 mkdir -p prometheus-results-$1/$2
 
 round=1
 npmPods=`kubectl get pod -n kube-system | grep npm-win | awk '{ print $1 }'`
 npmLinuxPods=`kubectl get pod -n kube-system | grep npm | grep -v npm-win | awk '{ print $1 }'`
+for npmPod in $npmLinuxPods; do
+    kubectl exec -it $npmPod -n kube-system -- apt-get install curl -y
+done
 while : ; do
     for npmPod in $npmLinuxPods; do
+        kubectl exec -it $npmPod -n kube-system -- apt-get install curl -y
         mkdir -p $baseDir/$npmPod/
         echo "round $round: collecting metrics for $npmPod at $(date)"
         dateString=`date | awk '{print $2 "-" $3 "-" $4}' | tr ':' '-'`
         echo date string: $dateString
+        kubectl exec -it $npmPod -n kube-system -- apt-get install curl -y
         kubectl exec -it $npmPod -n kube-system -- curl localhost:10091/cluster-metrics > $baseDir/$npmPod/${dateString}cluster-metrics.txt
         kubectl exec -it $npmPod -n kube-system -- curl localhost:10091/node-metrics > $baseDir/$npmPod/${dateString}node-metrics.txt
         echo "round $round: collected metrics for $npmPod at $(date)"
