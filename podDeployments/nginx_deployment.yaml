@@ -6,7 +6,7 @@ metadata:
   labels:
     app: busybox
 spec:
-  replicas: 1000
+  replicas: 10
   selector:
     matchLabels:
       app: busybox
@@ -15,10 +15,20 @@ spec:
       labels:
         app: busybox
     spec:
+      nodeSelector:
+        kubernetes.io/os: "windows"
       containers:
-        - name: busybox
-          image: busybox:latest
-          imagePullPolicy: IfNotPresent
-          command:
-            - sleep
-            - "36000"
+      - command:
+        - /agnhost
+        - serve-hostname
+        - --tcp
+        - --http=false
+        - --port
+        - "80"
+        image: k8s.gcr.io/e2e-test-images/agnhost:2.33
+        imagePullPolicy: IfNotPresent
+        name: cont-80-tcp
+        ports:
+        - containerPort: 80
+          name: serve-80-tcp
+          protocol: TCP

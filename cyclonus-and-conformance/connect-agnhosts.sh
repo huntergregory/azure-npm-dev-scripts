@@ -8,12 +8,14 @@ help () {
 	echo "The container cont-80-tcp must exist on the source pod."
 	echo
 	echo "Usage:"
-	echo "./connect-agnhosts.sh srcNS srcPod dstNS dstPod [-r <port>] [-p <protocol>] [-x]"
+	echo "./connect-agnhosts.sh srcNS srcPod dstNS dstPod [-r <port>] [-p <protocol>] [-k <kubeconfig>] [-x]"
 	echo
 	echo "-r <port>"
 	echo "    Default is 80."
 	echo "-p <protocol>"
 	echo "    Default is tcp. UDP doesn't work right now."
+	echo "-k <kubeconfig>"
+	echo "    Default is ~/.kube/config"
 	echo "-x"
 	echo "    Show execution commands."
 	echo "-h"
@@ -29,12 +31,14 @@ srcPod=$2
 dstNS=$3
 dstPod=$4
 shift 4
-while getopts ":p:r:xh" option; do
+while getopts ":p:r:k:xh" option; do
     case $option in
 		r)
 			port=$OPTARG;;
 		p)
 			protocol=$OPTARG;;
+		k)
+			kubeconfig=$OPTARG;;
 		x)
 			set -x;;
 		h)
@@ -55,8 +59,13 @@ fi
 
 container="cont-80-tcp"
 svcName="s-$dstNS-$dstPod"
+configFile=~/.kube/config
+if [[ $kubeconfig != "" ]]; then
+	configFile=$kubeconfig
+	svcName="s-$dstPod"
+fi
 svcURL=$svcName.$dstNS.svc.cluster.local:$port
-kubectl exec -n $srcNS $srcPod -c $container -- /agnhost connect $svcURL --timeout=2s --protocol=$protocol
+kubectl --kubeconfig $configFile exec -n $srcNS $srcPod -c $container -- /agnhost connect $svcURL --timeout=5s --protocol=$protocol
 
 exitCode=$?
 set +x

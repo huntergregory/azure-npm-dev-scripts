@@ -337,11 +337,12 @@ echo "will observe NPM pod: $npmPod"
 # print out image version
 kubectl get pod -n kube-system $npmPod -o yaml | grep image: -m 1
 
-if [[ $shouldSaveLog == "true" ]]; then
+npmPods=`kubectl get pod -n kube-system | grep npm | awk '{print $1}'`
+for pod in $npmPods; do
     logFilePath="$localResultsFolderName/$logFileName"
     echo "Saving npm logs to $logFilePath in a background process"
     kubectl logs -n kube-system $npmPod -f > $logFilePath &
-fi
+done
 
 saveArtifactsAndExit () {
     if [[ $captureMode == "cpu" ]]; then

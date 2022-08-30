@@ -1,5 +1,7 @@
 #!/bin/bash
-numReplicas=80
+numReplicas=95
+# 95 * 250 = 23500
+# 24491 - 510 = 23981 / 250
 
 set -e
 numNamespaces=`kubectl get ns | grep test-ns- | wc -l`

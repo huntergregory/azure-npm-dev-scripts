@@ -5,10 +5,10 @@
 set -e
 
 myLocation="eastus2euap" # Depends on you
-myResourceGroup="TODO" # Depends on you
+myResourceGroup="hgregory-win-scale-east" # "hgregory-aks-ws22-2" # Depends on you
 myAKSCluster=$myResourceGroup # Depends on you
 myWindowsUserName="azureuser" # Recommend azureuser
-myWindowsPassword="TODO" # Complex enough
+myWindowsPassword="Feichjeu3*Eem3" # Complex enough
 myK8sVersion="1.23.8" # AKS supports WS2022 when k8s version >= 1.23
 myWindowsNodePool="win22" # Length <= 6
 
@@ -45,9 +45,11 @@ az aks nodepool add \
     --name $myWindowsNodePool \
     --os-type Windows \
     --os-sku Windows2022 \
-    --node-vm-size "standard_d4s_v3" \
+    --node-vm-size "Standard_D4_v2" \
     --node-count 50 \
     --max-pods 80
+
+    # standard_d4s_v3 exceeds limit in centraluseuap
 
 # uncomment below line to force pods to be scheduled on windows nodes
 # az aks nodepool update --node-taints CriticalAddonsOnly=true:NoSchedule -n nodepool1 -g $myResourceGroup --cluster-name $myAKSCluster
