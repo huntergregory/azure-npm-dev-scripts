@@ -58,11 +58,10 @@ if [[ -z $protocol ]]; then
 fi
 
 container="cont-80-tcp"
-svcName="s-$dstNS-$dstPod"
+svcName="s-$dstPod"
 configFile=~/.kube/config
 if [[ $kubeconfig != "" ]]; then
 	configFile=$kubeconfig
-	svcName="s-$dstPod"
 fi
 svcURL=$svcName.$dstNS.svc.cluster.local:$port
 kubectl --kubeconfig $configFile exec -n $srcNS $srcPod -c $container -- /agnhost connect $svcURL --timeout=5s --protocol=$protocol
