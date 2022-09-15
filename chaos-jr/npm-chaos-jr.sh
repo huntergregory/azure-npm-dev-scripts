@@ -77,9 +77,11 @@ fi
 set +x
 numPods=$(( $numDeployments * $numReplicas ))
 toAddACLs=$(( 6 * $numPolicies ))
+toAddWindowsACLs=$(( $numPods * $toAddACLs ))
 toAddIPSets=$(( 4 + 2 * $numPods * $numUniqueLabelsPerPod + 2 * $numSharedLabelsPerPod))
 toAddMembers=$(( 3 + (5 + 2*$numUniqueLabelsPerPod + 2*$numSharedLabelsPerPod) * $numPods ))
 
+totalWindowsACLs=$(( $originalACLs + $toAddWindowsACLs ))
 totalACLs=$(( $originalACLs + $toAddACLs ))
 totalIPSets=$(( $originalIPSets + $toAddIPSets ))
 totalMembers=$(( $originalMembers + $toAddMembers ))
@@ -99,12 +101,14 @@ echo original IPSets: $originalIPSets
 echo original Members: $originalMembers
 echo original windows pod count: $originalWindowsPodCount
 echo 
-echo toAdd ACLs: $toAddACLs
+echo "toAdd ACLs (per endpoint in Windows): $toAddACLs"
+echo "toAdd ACLs across all endpoints for Windows: $toAddWindowsACLs"
 echo toAdd IPSets: $toAddIPSets
 echo toAdd Members: $toAddMembers
 echo toAdd pods: $numPods
 echo
-echo total ACLs: $totalACLs
+echo "total ACLs (per endpoint in Windows): $totalACLs"
+echo "total ACLs across all endpoints for Windows: $totalWindowsACLs"
 echo total IPSets: $totalIPSets
 echo total Members: $totalMembers
 echo total windows pod count: $totalWindowsPodCount
