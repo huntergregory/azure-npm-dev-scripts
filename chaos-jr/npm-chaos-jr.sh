@@ -8,11 +8,11 @@ windowsNodeName=akswin22
 #   [ns-chaos-jr,nsmeta:chaos-jr,hash:xxxx,app:busybox + labels]
 # added members: 3 + (5+2*uni+2*shared)*pods
 #   [all-ns,nsmeta,nsmeta:chaos-jr + 2*uni*pods + 2*shared*pods + (app,app:busybox,hash,hash:xxxx,ns-chaos-jr) * pods]
-numDeployments=120 # adding 12*3 from 120 to get an equal amount on 3 linux nodes. 3.5k more members and 340 more ipsets
-numReplicas=5
+numDeployments=40 # 120 # adding 12*3 from 120 to get an equal amount on 3 linux nodes. 3.5k more members and 340 more ipsets
+numReplicas=2 # 5
 numUniqueLabelsPerPod=1 # must be >= 1
-numSharedLabelsPerPod=40 # must be >= 3
-numPolicies=1000 # $(( (10000 - 13) / 6 + 1))
+numSharedLabelsPerPod=10 # 40 # must be >= 3
+numPolicies=100 # 1000 # $(( (10000 - 13) / 6 + 1))
 
 ## SETUP
 if [[ $1 == "-d" ]]; then
@@ -30,7 +30,7 @@ elif [[ $1 == "-c" ]]; then
         exit 1
     fi
     if [[ $INSTALL_CURL == true ]]; then
-        kubectl exec -it -n kube-system $npmPod -- apt-get install curl -y
+        kubectl exec -it -n kube-system $npmPod -- bash -c "apt-get update && apt-get install curl -y"
     fi
     
     finalACLs=`kubectl exec -it -n kube-system $npmPod -- curl localhost:10091/cluster-metrics | grep -P "npm_num_iptables_rules \\d+" | grep -oP "\\d+"`
@@ -62,7 +62,7 @@ else
     kubectl delete ns chaos-jr && echo "sleeping 5 minutes to let NPM count reset" && sleep 5m
     
     if [[ $INSTALL_CURL == true ]]; then
-        kubectl exec -it -n kube-system $npmPod -- apt-get install curl -y
+        kubectl exec -it -n kube-system $npmPod -- bash -c "apt-get update && apt-get install curl -y"
     fi
 
     set -e

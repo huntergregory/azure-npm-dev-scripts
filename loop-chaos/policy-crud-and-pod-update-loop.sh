@@ -37,12 +37,12 @@ echo "waiting for x/a, x/b, x/c to be running..."
 kubectl wait pod -n x a b c --for condition=ready --timeout=600s
 exitOnSetupFailure $?
 
-echo "WILL RESTART NPM. Cancel now to comment out restart..."
-echo 5... && sleep 1 && echo 4... && sleep 1 && echo 3... && sleep 1 && echo 2... && sleep 1 && echo 1... && sleep 1
-echo "restarting npm-win..."
-kubectl rollout restart ds -n kube-system azure-npm-win
-echo "sleeping 2m"
-sleep 2m
+# echo "WILL RESTART NPM. Cancel now to comment out restart..."
+# echo 5... && sleep 1 && echo 4... && sleep 1 && echo 3... && sleep 1 && echo 2... && sleep 1 && echo 1... && sleep 1
+# echo "restarting npm-win..."
+# kubectl rollout restart ds -n kube-system azure-npm-win
+# echo "sleeping 2m"
+# sleep 2m
 
 xaNode=`kubectl get pod -o template -n x a --template={{.spec.nodeName}}`
 npmPod=`kubectl get pod -n kube-system -owide | grep azure-npm-win | grep $xaNode | awk '{print $1}'`
