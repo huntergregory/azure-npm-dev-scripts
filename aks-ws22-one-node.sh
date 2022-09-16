@@ -9,6 +9,7 @@ myWindowsUserName="azureuser" # Recommend azureuser
 myWindowsPassword="TODO" # Complex enough
 myK8sVersion="1.23.8" # AKS supports WS2022 when k8s version >= 1.23
 myWindowsNodePool="win22" # Length <= 6
+myLinuxNodePool="linux1"
 
 ## Update aks-preview to the latest version
 az extension add --name aks-preview
@@ -47,6 +48,16 @@ az aks nodepool add \
     --os-type Windows \
     --os-sku Windows2022 \
     --max-pods 200 \
+    --node-count 1
+
+az aks nodepool add \
+    --resource-group $myResourceGroup \
+    --cluster-name $myAKSCluster \
+    --name $myLinuxNodePool \
+    --os-type Linux \
+    --os-sku Ubuntu \
+    --max-pods 200 \
+    --node-vm-size=Standard_D2s_v3 \
     --node-count 1
 
 ## UNCOMMENT to prevent customer pods from being scheduled on Linux nodes
