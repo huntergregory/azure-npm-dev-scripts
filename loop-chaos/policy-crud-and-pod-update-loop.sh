@@ -45,7 +45,7 @@ exitOnSetupFailure $?
 # sleep 2m
 
 xaNode=`kubectl get pod -o template -n x a --template={{.spec.nodeName}}`
-npmPod=`kubectl get pod -n kube-system -owide | grep azure-npm-win | grep $xaNode | awk '{print $1}'`
+npmPod=`kubectl get pod -n kube-system -owide | grep azure-npm | grep $xaNode | awk '{print $1}'`
 echo "npmPod: $npmPod"
 if [[ $npmPod == "" ]]; then
     echo "couldn't find npmPod on x/a's node: $xaNode"
