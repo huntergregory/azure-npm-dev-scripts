@@ -60,7 +60,4 @@ az aks nodepool add \
     --node-vm-size=Standard_D2s_v3 \
     --node-count 1
 
-## UNCOMMENT to prevent customer pods from being scheduled on Linux nodes
-az aks nodepool update --node-taints CriticalAddonsOnly=true:NoSchedule -n nodepool1 -g $myResourceGroup --cluster-name $myAKSCluster
-
 az aks get-credentials -g $myResourceGroup -n $myAKSCluster --overwrite-existing
