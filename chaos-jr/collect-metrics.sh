@@ -12,9 +12,9 @@ while : ; do
     echo "round $round: collecting pod status at $(date)"
     kubectl get pod -owide -A --kubeconfig $1
     echo "round $round: collected pod status at $(date)"
-    echo "sleeping 5m"
+    echo "sleeping 1m"
     echo
 
-    sleep 5m
+    sleep 1m
     round=$((round+1))
 done
