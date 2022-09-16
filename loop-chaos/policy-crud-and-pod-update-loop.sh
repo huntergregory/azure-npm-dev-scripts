@@ -31,7 +31,7 @@ kubectl delete ns x
 # kubectl label pod -n x b pod2-
 
 kubectl create ns x
-kubectl apply -n x -f ../cyclonus-and-conformance/test-3-agnhost-pods.yaml
+kubectl apply -n x -f test-3-minimal-agnhost-pods.yaml
 echo "NOTE: make sure the nodes of your choice are labeled with vm=0, vm=1, and vm=2"
 echo "waiting for x/a, x/b, x/c to be running..."
 kubectl wait pod -n x a b c --for condition=ready --timeout=600s
