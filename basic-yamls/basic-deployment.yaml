@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: basic-dep
+  name: basic-deployment
   namespace: test
   labels:
-    test-app: busybox
+    dep-app: busybox
 spec:
   replicas: 2
   selector:
