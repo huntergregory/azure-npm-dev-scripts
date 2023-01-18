@@ -16,11 +16,9 @@ myWindowsNodePool="win22" # Length <= 6
 az extension add --name aks-preview
 az extension update --name aks-preview
 
-# Enable Microsoft.ContainerService/AKSWindows2022Preview
-az feature register --namespace Microsoft.ContainerService --name AKSWindows2022Preview
 # for public preview, will be able to register for Windows Network Policies
 # az feature register --namespace Microsoft.ContainerService --name WindowsNetworkPolicyPreview
-az provider register -n Microsoft.ContainerService
+# az provider register -n Microsoft.ContainerService
 
 az group create --name $myResourceGroup --location $myLocation
 
@@ -35,7 +33,7 @@ az aks create \
     --network-plugin azure \
     --vm-set-type VirtualMachineScaleSets \
     --node-vm-size "Standard_DS2_v2" \
-    --node-count 3 \
+    --node-count 1 \
     --max-pods 80 \
     --uptime-sla
 
