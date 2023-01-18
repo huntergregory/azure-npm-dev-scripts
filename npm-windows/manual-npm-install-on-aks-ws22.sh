@@ -11,14 +11,6 @@ myWindowsUserName="azureuser" # Recommend azureuser
 myWindowsPassword="TODO" # Complex enough
 myWindowsNodePool="win22" # Length <= 6
 
-# Update aks-preview to the latest version
-az extension add --name aks-preview
-az extension update --name aks-preview
-
-# for public preview, will be able to register for Windows Network Policies
-# az feature register --namespace Microsoft.ContainerService --name WindowsNetworkPolicyPreview
-# az provider register -n Microsoft.ContainerService
-
 az group create --name $myResourceGroup --location $myLocation
 
 # for public preview and general availability, won't need to apply the yamls below and can just add the following to the create command: --network-policy azure
@@ -41,11 +33,9 @@ az aks nodepool add \
     --name $myWindowsNodePool \
     --os-type Windows \
     --os-sku Windows2022 \
-    --node-vm-size "Standard_D4_v2" \
+    --node-vm-size "Standard_D4s_v3" \
     --node-count 1 \
     --max-pods 100
-
-    # standard_d4s_v3 exceeds limit in centraluseuap
 
 # uncomment below line to force pods to be scheduled on windows nodes
 # az aks nodepool update --node-taints CriticalAddonsOnly=true:NoSchedule -n nodepool1 -g $myResourceGroup --cluster-name $myAKSCluster
