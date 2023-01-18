@@ -5,11 +5,10 @@
 set -e
 
 myLocation="eastus2euap" # Depends on you
-myResourceGroup="hgregory-win-scale-east" # "hgregory-aks-ws22-2" # Depends on you
+myResourceGroup="TODO"
 myAKSCluster=$myResourceGroup # Depends on you
 myWindowsUserName="azureuser" # Recommend azureuser
-myWindowsPassword="Feichjeu3*Eem3" # Complex enough
-myK8sVersion="1.23.8" # AKS supports WS2022 when k8s version >= 1.23
+myWindowsPassword="TODO" # Complex enough
 myWindowsNodePool="win22" # Length <= 6
 
 # Update aks-preview to the latest version
@@ -29,7 +28,6 @@ az aks create \
     --generate-ssh-keys \
     --windows-admin-username $myWindowsUserName \
     --windows-admin-password $myWindowsPassword \
-    --kubernetes-version $myK8sVersion \
     --network-plugin azure \
     --vm-set-type VirtualMachineScaleSets \
     --node-vm-size "Standard_DS2_v2" \
@@ -44,8 +42,8 @@ az aks nodepool add \
     --os-type Windows \
     --os-sku Windows2022 \
     --node-vm-size "Standard_D4_v2" \
-    --node-count 50 \
-    --max-pods 80
+    --node-count 1 \
+    --max-pods 100
 
     # standard_d4s_v3 exceeds limit in centraluseuap
 
@@ -57,5 +55,7 @@ az aks get-credentials -g $myResourceGroup -n $myAKSCluster --overwrite-existing
 
 # NPM on Linux
 kubectl apply -f https://raw.githubusercontent.com/Azure/azure-container-networking/master/npm/azure-npm.yaml
+kubectl set image ds -n kube-system azure-npm azure-npm=mcr.microsoft.com/containernetworking/azure-npm:v1.4.32
 # NPM on Windows
 kubectl apply -f https://raw.githubusercontent.com/Azure/azure-container-networking/master/npm/examples/windows/azure-npm.yaml
+kubectl set image ds -n kube-system azure-npm-win azure-npm=mcr.microsoft.com/containernetworking/azure-npm:v1.4.34
